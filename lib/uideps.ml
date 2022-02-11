@@ -14,11 +14,8 @@ let merge_tbl ~into tbl = Hashtbl.iter (add into) tbl
 
 let gather_uids tree =
   let tbl = Hashtbl.create 64 in
-  let add_if_external ~loc = function
-    | (Shape.Uid.Compilation_unit comp_unit | Item { comp_unit; _ }) as uid ->
-      if Env.get_unit_name () <> comp_unit then
-        add tbl uid (LocSet.singleton loc)
-    | _ -> ()
+  let add_to_tbl ~loc uid = 
+      add tbl uid (LocSet.singleton loc)
   in
   let iterator env =
     { Tast_iterator.default_iterator with
@@ -27,7 +24,7 @@ let gather_uids tree =
         (fun sub ({ exp_desc; exp_loc; _} as e) ->
           begin match exp_desc with
           | Texp_ident (_, _, { val_uid; _ }) ->
-            add_if_external ~loc:exp_loc val_uid
+            add_to_tbl ~loc:exp_loc val_uid
           | _ -> () end;
           Tast_iterator.default_iterator.expr sub e);
 
@@ -36,7 +33,7 @@ let gather_uids tree =
           begin match mod_desc with
           | Tmod_ident (path, _lid) ->
             let md = Env.find_module path env in
-            add_if_external ~loc:mod_loc md.md_uid
+            add_to_tbl ~loc:mod_loc md.md_uid
           | _ -> () end;
           Tast_iterator.default_iterator.module_expr sub me);
 
@@ -45,7 +42,7 @@ let gather_uids tree =
           begin match ctyp_desc with
           | Ttyp_constr (path, _lid, _ctyps) ->
             let td = Env.find_type path env in
-            add_if_external ~loc:ctyp_loc td.type_uid
+            add_to_tbl ~loc:ctyp_loc td.type_uid
           | _ -> () end;
           Tast_iterator.default_iterator.typ sub me);
 
