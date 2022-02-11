@@ -4,18 +4,20 @@ type typedtree =
  | Interface of Typedtree.signature
  | Implementation of Typedtree.structure
 
+let add tbl uid locs =
+  try
+    let locations = Hashtbl.find tbl uid in
+    Hashtbl.replace tbl uid (LocSet.union locs locations)
+  with Not_found -> Hashtbl.add tbl uid locs
+
+let merge_tbl ~into tbl = Hashtbl.iter (add into) tbl
+
 let gather_uids tree =
   let tbl = Hashtbl.create 64 in
-  let add uid loc =
-    try
-      let locations = Hashtbl.find tbl uid in
-      Hashtbl.replace tbl uid (LocSet.add loc locations)
-    with Not_found -> Hashtbl.add tbl uid (LocSet.singleton loc)
-  in
   let add_if_external ~loc = function
     | (Shape.Uid.Compilation_unit comp_unit | Item { comp_unit; _ }) as uid ->
       if Env.get_unit_name () <> comp_unit then
-        add uid loc
+        add tbl uid (LocSet.singleton loc)
     | _ -> ()
   in
   let iterator env =
@@ -46,6 +48,7 @@ let gather_uids tree =
             add_if_external ~loc:ctyp_loc td.type_uid
           | _ -> () end;
           Tast_iterator.default_iterator.typ sub me);
+
     }
   in
   begin match tree with
@@ -72,7 +75,7 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
 let generate_one_aux ~input_file tree =
   let uids = gather_uids tree in
   let file =
-    String.concat "." [Filename.basename input_file; File_format.ext]
+    String.concat "." [Filename.remove_extension input_file; File_format.ext]
   in
   File_format.write ~file uids
 
@@ -85,3 +88,14 @@ let generate_one input_file =
   | _, _ -> (* todo log error *) ()
 
 let generate = List.iter generate_one
+
+let aggregate =
+  let output = "workspace.uideps" in
+  let tbl = Hashtbl.create 256 in
+  let merge_file file =
+    let f_tbl = File_format.read ~file in
+    merge_tbl f_tbl ~into:tbl 
+  in
+  fun files -> 
+    List.iter merge_file files;
+    File_format.write ~file:output tbl

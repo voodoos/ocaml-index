@@ -43,7 +43,7 @@ let () = try
   | Dump, _::_::_ -> raise Too_many_files
   | Process, files -> Uideps.generate files
   | Dump, [file] -> File_format.(read ~file |> pp_payload Format.std_formatter)
-  | Aggregate, _ -> () (* todo *)
+  | Aggregate, _ -> Uideps.aggregate !input_files
 with
   Unknown_command cmd -> Printf.eprintf "Unknown command %S." cmd; exit 2
   | Too_many_files ->
