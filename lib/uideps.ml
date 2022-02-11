@@ -18,7 +18,7 @@ let gather_uids tree =
         add uid loc
     | _ -> ()
   in
-  let iterator _env =
+  let iterator env =
     { Tast_iterator.default_iterator with
 
       expr =
@@ -28,6 +28,24 @@ let gather_uids tree =
             add_if_external ~loc:exp_loc val_uid
           | _ -> () end;
           Tast_iterator.default_iterator.expr sub e);
+
+      module_expr =
+        (fun sub ({ mod_desc; mod_loc; _} as me) ->
+          begin match mod_desc with
+          | Tmod_ident (path, _lid) ->
+            let md = Env.find_module path env in
+            add_if_external ~loc:mod_loc md.md_uid
+          | _ -> () end;
+          Tast_iterator.default_iterator.module_expr sub me);
+
+      typ =
+        (fun sub ({ ctyp_desc; ctyp_loc; _} as me) ->
+          begin match ctyp_desc with
+          | Ttyp_constr (path, _lid, _ctyps) ->
+            let td = Env.find_type path env in
+            add_if_external ~loc:ctyp_loc td.type_uid
+          | _ -> () end;
+          Tast_iterator.default_iterator.typ sub me);
     }
   in
   begin match tree with
