@@ -1,7 +1,6 @@
 (alias
  (name test-deps)
- (deps %{bin:ocaml-uideps})
- (package ocaml-uideps))
+ (deps (package ocaml-uideps)))
 
 (cram
  (applies_to :whole_subtree)
