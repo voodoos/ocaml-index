@@ -1,4 +1,11 @@
 (library
- (name lib)
- (wrapped false)
+ (name file_format)
+ (public_name ocaml-uideps.lib)
+ (modules file_format)
  (libraries compiler-libs.common))
+
+
+(library
+ (name lib)
+ (modules uideps)
+ (libraries file_format compiler-libs.common))
