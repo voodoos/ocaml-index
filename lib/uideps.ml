@@ -91,8 +91,11 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
     Some (Implementation { str with str_final_env })
   | _ -> None
 
-let generate_one_aux ~input_file tree =
+let generate_one_aux ~uid_to_loc ~input_file tree =
   let uids = gather_uids tree in
+  Shape.Uid.Tbl.iter 
+    (fun uid loc -> add uids uid (LocSet.singleton loc)) 
+    uid_to_loc;
   let file =
     String.concat "." [Filename.remove_extension input_file; File_format.ext]
   in
@@ -103,7 +106,8 @@ let generate_one input_file =
   | _, Some cmt_infos -> 
     Load_path.init cmt_infos.cmt_loadpath;
     begin match get_typedtree cmt_infos with
-    | Some tree -> generate_one_aux ~input_file tree
+    | Some tree -> 
+      generate_one_aux ~uid_to_loc:cmt_infos.cmt_uid_to_loc ~input_file tree
     | None -> (* todo log error *) ()
     end
   | _, _ -> (* todo log error *) ()
