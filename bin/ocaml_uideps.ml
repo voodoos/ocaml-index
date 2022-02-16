@@ -22,6 +22,7 @@ let usage_msg = "ocaml-uideps process-cmt <cmt> [<cmt>] ...
 \nocaml-uideps dump <cmt>"
 
 let command = ref Usage
+let verbose = ref false
 let input_files = ref []
 let output_file : string option ref = ref None
 
@@ -37,10 +38,11 @@ let anon_fun  =
 let set_output_file file =
   output_file := Some file
 
-let speclist = []
+let speclist = [("--verbose", Arg.Set verbose, "Output debug information")]
 
 let () = try
   Arg.parse speclist anon_fun usage_msg;
+  if !verbose then Log.set_log_level Debug;
   match !command, !input_files with
   | (Process | Aggregate | Dump), [] -> raise Too_few_files
   | Dump, _::_::_ -> raise Too_many_files
