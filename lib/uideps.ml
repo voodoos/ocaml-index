@@ -26,16 +26,15 @@ let gather_uids tree =
         Log.debug "Read unit shape: %s\n%!" unit_name;
         let cmt = String.concat "." [unit_name; "cmt"] in
         match Cmt_format.read (Load_path.find_uncap cmt) with
-        | _, Some cmt_infos ->
-          (* TODO should we complete the load_path ? *)
-          cmt_infos.cmt_impl_shape
+        | _, Some cmt_infos ->  cmt_infos.cmt_impl_shape
         | _, None | exception Not_found ->
           Log.warn "Failed to load cmt: %s\n%!" cmt;
           None
 
       let find_shape env id = Env.shape_of_path
         ~namespace:Shape.Sig_component_kind.Module env (Pident id)
-    end) in
+    end)
+  in
   let iterator =
     let add_to_tbl ~env ~loc shape =
         match (Shape_reduce.reduce env shape).uid with
@@ -45,10 +44,11 @@ let gather_uids tree =
     { Tast_iterator.default_iterator with
 
       expr =
-        (fun sub ({ exp_desc; exp_loc; exp_env = env; _} as e) ->
+        (fun sub ({ exp_desc; exp_loc; exp_env; _} as e) ->
           begin match exp_desc with
           | Texp_ident (path, _, { val_uid=_; _ }) ->
             begin try
+              let env = Envaux.env_of_only_summary exp_env in
               let shape = Env.shape_of_path ~namespace:Kind.Value env path in
               add_to_tbl ~env ~loc:exp_loc shape
             with Not_found ->
@@ -60,10 +60,11 @@ let gather_uids tree =
           Tast_iterator.default_iterator.expr sub e);
 
       module_expr =
-        (fun sub ({ mod_desc; mod_loc; mod_env = env; _} as me) ->
+        (fun sub ({ mod_desc; mod_loc; mod_env; _} as me) ->
           begin match mod_desc with
           | Tmod_ident (path, _lid) ->
             begin try
+              let env = Envaux.env_of_only_summary mod_env in
               let shape = Env.shape_of_path ~namespace:Kind.Module env path in
               add_to_tbl ~env ~loc:mod_loc shape
             with Not_found ->
@@ -75,10 +76,11 @@ let gather_uids tree =
           Tast_iterator.default_iterator.module_expr sub me);
 
       typ =
-        (fun sub ({ ctyp_desc; ctyp_loc; ctyp_env = env;_} as me) ->
+        (fun sub ({ ctyp_desc; ctyp_loc; ctyp_env; _} as me) ->
           begin match ctyp_desc with
           | Ttyp_constr (path, _lid, _ctyps) ->
             begin try
+              let env = Envaux.env_of_only_summary ctyp_env in
               let shape = Env.shape_of_path ~namespace:Kind.Type env path in
               add_to_tbl ~env ~loc:ctyp_loc shape
             with Not_found ->
