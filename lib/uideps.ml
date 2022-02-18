@@ -82,6 +82,7 @@ let gather_uids tree =
   tbl
 
 let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
+  Log.debug "get Typedtree\n%!";
   match cmt_infos.cmt_annots with
   | Interface s ->
     let sig_final_env = Envaux.env_of_only_summary s.sig_final_env in
@@ -93,20 +94,22 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
 
 let generate_one_aux ~uid_to_loc ~input_file tree =
   let uids = gather_uids tree in
-  Shape.Uid.Tbl.iter 
-    (fun uid loc -> add uids uid (LocSet.singleton loc)) 
+  Shape.Uid.Tbl.iter
+    (fun uid loc -> add uids uid (LocSet.singleton loc))
     uid_to_loc;
   let file =
     String.concat "." [Filename.remove_extension input_file; File_format.ext]
   in
+  Log.debug "Writing %s\n%!" file;
   File_format.write ~file uids
 
 let generate_one input_file =
+  Log.debug "Generate: %s\n%!" input_file;
   match Cmt_format.read input_file with
-  | _, Some cmt_infos -> 
+  | _, Some cmt_infos ->
     Load_path.init cmt_infos.cmt_loadpath;
     begin match get_typedtree cmt_infos with
-    | Some tree -> 
+    | Some tree ->
       generate_one_aux ~uid_to_loc:cmt_infos.cmt_uid_to_loc ~input_file tree
     | None -> (* todo log error *) ()
     end
@@ -119,8 +122,8 @@ let aggregate =
   let tbl = Hashtbl.create 256 in
   let merge_file file =
     let f_tbl = File_format.read ~file in
-    merge_tbl f_tbl ~into:tbl 
+    merge_tbl f_tbl ~into:tbl
   in
-  fun files -> 
+  fun files ->
     List.iter merge_file files;
     File_format.write ~file:output tbl
