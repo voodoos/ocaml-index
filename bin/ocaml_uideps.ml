@@ -23,6 +23,7 @@ let usage_msg = "ocaml-uideps process-cmt <cmt> [<cmt>] ...
 
 let command = ref Usage
 let verbose = ref false
+let debug = ref false
 let input_files = ref []
 let output_file : string option ref = ref None
 
@@ -38,11 +39,14 @@ let anon_fun  =
 let set_output_file file =
   output_file := Some file
 
-let speclist = [("--verbose", Arg.Set verbose, "Output debug information")]
+let speclist = [
+  ("--verbose", Arg.Set verbose, "Output log information");
+  ("--debug", Arg.Set debug, "Output debug information")]
 
 let () = try
   Arg.parse speclist anon_fun usage_msg;
-  if !verbose then Log.set_log_level Debug;
+  if !verbose then Log.set_log_level Warning;
+  if !debug then Log.set_log_level Debug;
   match !command, !input_files with
   | (Process | Aggregate | Dump), [] -> raise Too_few_files
   | Dump, _::_::_ -> raise Too_many_files
