@@ -52,7 +52,9 @@ let gather_uids tree =
               let shape = Env.shape_of_path ~namespace:Kind.Value env path in
               add_to_tbl ~env ~loc:exp_loc shape
             with Not_found ->
-              Log.warn "No shape for expr %a" Path.print path
+              Log.warn "No shape for expr %a at %a"
+                Path.print path
+                Location.print_loc exp_loc
             end
           | _ -> () end;
           Tast_iterator.default_iterator.expr sub e);
@@ -65,7 +67,9 @@ let gather_uids tree =
               let shape = Env.shape_of_path ~namespace:Kind.Module env path in
               add_to_tbl ~env ~loc:mod_loc shape
             with Not_found ->
-              Log.warn "No shape for module %a\n%!" Path.print path
+              Log.warn "No shape for module %a at %a\n%!"
+                Path.print path
+                Location.print_loc mod_loc
             end
           | _ -> () end;
           Tast_iterator.default_iterator.module_expr sub me);
@@ -80,8 +84,7 @@ let gather_uids tree =
             with Not_found ->
               Log.warn "No shape for type %a at %a"
                 Path.print path
-                Location.print_loc ctyp_loc;
-              raise Not_found
+                Location.print_loc ctyp_loc
             end
           | _ -> () end;
           Tast_iterator.default_iterator.typ sub me);
