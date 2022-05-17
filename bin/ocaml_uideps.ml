@@ -18,14 +18,14 @@ let cmd_of_string = function
   | s -> raise (Unknown_command s)
 
 let usage_msg = "ocaml-uideps process-cmt <cmt> [<cmt>] ...
-\nocaml-uideps aggregate <uideps> [<uideps>] ...
+\nocaml-uideps aggregate -o <output> <uideps> [<uideps>] ...
 \nocaml-uideps dump <cmt>"
 
 let command = ref Usage
 let verbose = ref false
 let debug = ref false
 let input_files = ref []
-let output_file : string option ref = ref None
+let output_file = ref "workspace.uideps"
 
 let anon_fun  =
   let first = ref true in
@@ -36,12 +36,10 @@ let anon_fun  =
     else
       input_files := filename::!input_files
 
-let set_output_file file =
-  output_file := Some file
-
 let speclist = [
   ("--verbose", Arg.Set verbose, "Output log information");
-  ("--debug", Arg.Set debug, "Output debug information")]
+  ("--debug", Arg.Set debug, "Output debug information");
+  ("-o", Arg.Set_string output_file, "Set output file name")]
 
 let () = try
   Arg.parse speclist anon_fun usage_msg;
@@ -52,7 +50,7 @@ let () = try
   | Dump, _::_::_ -> raise Too_many_files
   | Process, files -> Uideps.generate files
   | Dump, [file] -> File_format.(read ~file |> pp_payload Format.std_formatter)
-  | Aggregate, _ -> Uideps.aggregate !input_files
+  | Aggregate, _ -> Uideps.aggregate ~output_file:!output_file !input_files
   | Usage, _ -> Format.print_string usage_msg
 with
   Unknown_command cmd -> Printf.eprintf "Unknown command %S." cmd; exit 2

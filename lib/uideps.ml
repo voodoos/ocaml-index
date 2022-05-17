@@ -135,8 +135,7 @@ let generate_one input_file =
 
 let generate = List.iter generate_one
 
-let aggregate =
-  let output = "workspace.uideps" in
+let aggregate ~output_file =
   let tbl = Hashtbl.create 256 in
   let merge_file file =
     let f_tbl = File_format.read ~file in
@@ -144,4 +143,4 @@ let aggregate =
   in
   fun files ->
     List.iter merge_file files;
-    File_format.write ~file:output tbl
+    File_format.write ~file:output_file tbl
