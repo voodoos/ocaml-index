@@ -1,5 +1,20 @@
 open Shape
 
+
+
+(**
+Risque de clash des Idents si on garde les memo pour des envs différents ?
+- au sein d'une même CU pas de soucis pour les env locaux car les idents ont des
+  numéros croissants
+- sinon risque d'utiliser une valeur mémoisiée invalide car elle dépend d'un
+  accès à l'environement et cela ce fait via des paths. Cela arrive:
+  - pour les parametres de foncteurs mais dans ce cas là il devrait renvoyer
+    LEaf
+  - pour les module rec il va récuperer la shape du module
+  - risque de clash arg foncteur / module rec
+
+*)
+
 module Make(Params : sig
   type env
   val fuel : int
@@ -48,7 +63,8 @@ end) = struct
 
 
   let persistent_memo_tables :
-    ((delayed_nf option Ident.Map.t * t, nf) Hashtbl.t * (nf, t) Hashtbl.t) option =
+    ((local_env * t, nf) Hashtbl.t *
+      (nf, t) Hashtbl.t) option =
     if Params.persist_memo then
       Some (Hashtbl.create 42, Hashtbl.create 42)
     else None
