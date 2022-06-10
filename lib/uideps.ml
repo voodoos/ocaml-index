@@ -13,6 +13,12 @@ let add tbl uid locs =
 
 let merge_tbl ~into tbl = Hashtbl.iter (add into) tbl
 
+let rebuild_env env =
+  try Envaux.env_of_only_summary env
+  with Envaux.Error e ->
+    Log.warn "Error while trying to rebuild env from summary: %a\n%!" Envaux.report_error e;
+    env
+
 let gather_uids tree =
   Log.debug "Gather UIDS";
   let tbl = Hashtbl.create 64 in
@@ -48,7 +54,7 @@ let gather_uids tree =
           begin match exp_desc with
           | Texp_ident (path, _, { val_uid=_; _ }) ->
             begin try
-              let env = Envaux.env_of_only_summary exp_env in
+              let env = rebuild_env exp_env in
               let shape = Env.shape_of_path ~namespace:Kind.Value env path in
               add_to_tbl ~env ~loc:exp_loc shape
             with Not_found ->
@@ -64,7 +70,7 @@ let gather_uids tree =
           begin match mod_desc with
           | Tmod_ident (path, _lid) ->
             begin try
-              let env = Envaux.env_of_only_summary mod_env in
+              let env = rebuild_env mod_env in
               let shape = Env.shape_of_path ~namespace:Kind.Module env path in
               add_to_tbl ~env ~loc:mod_loc shape
             with Not_found ->
@@ -80,7 +86,7 @@ let gather_uids tree =
           begin match ctyp_desc with
           | Ttyp_constr (path, _lid, _ctyps) ->
             begin try
-              let env = Envaux.env_of_only_summary ctyp_env in
+              let env = rebuild_env ctyp_env in
               let shape = Env.shape_of_path ~namespace:Kind.Type env path in
               add_to_tbl ~env ~loc:ctyp_loc shape
             with Not_found ->
@@ -103,12 +109,16 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
   Log.debug "get Typedtree\n%!";
   match cmt_infos.cmt_annots with
   | Interface s ->
-    let sig_final_env = Envaux.env_of_only_summary s.sig_final_env in
+    Log.debug "Interface\n%!";
+    let sig_final_env = rebuild_env s.sig_final_env in
     Some (Interface { s with sig_final_env })
   | Implementation str ->
-    let str_final_env = Envaux.env_of_only_summary str.str_final_env in
+    Log.debug "Implementation\n%!";
+    let str_final_env = rebuild_env str.str_final_env in
     Some (Implementation { str with str_final_env })
-  | _ -> None
+  | _ ->
+    Log.debug "No typedtree\n%!";
+    None
 
 let generate_one_aux ~uid_to_loc ~input_file tree =
   let uids = gather_uids tree in
