@@ -2,6 +2,3 @@
  (name ocaml_uideps)
  (public_name ocaml-uideps)
  (libraries lib))
-
-;/Users/ulysse/.opam/4.14.0~alpha1/bin
-;/Users/ulysse/.opam/4.14.0~alpha1/bin/ocaml-uideps
