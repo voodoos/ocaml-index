@@ -19,24 +19,17 @@ module Level = struct
 end
 
 
-let log_level = ref Level.Error
+let log_level =
+  ref Level.Error
 let set_log_level level =
   log_level := level
 
 let log =
   fun ~level ->
     let print =
-  let print =
-    let print =
       let formatter =
-    let formatter =
-      let formatter =
-        if level = Level.Error then
-      if level = Level.Error then
         if level = Level.Error then
           Format.err_formatter
-        else
-      else
         else
           Format.std_formatter
       in
@@ -47,6 +40,9 @@ let log =
     else
       Format.ikfprintf ignore Format.std_formatter
 
-let debug fmt = log ~level:Level.Debug fmt
-let warn fmt = log ~level:Level.Warning fmt
-let error fmt = log ~level:Level.Error fmt
+let debug fmt =
+  log ~level:Level.Debug fmt
+let warn fmt =
+  log ~level:Level.Warning fmt
+let error fmt =
+  log ~level:Level.Error fmt
