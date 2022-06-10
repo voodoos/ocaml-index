@@ -120,30 +120,33 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
     Log.debug "No typedtree\n%!";
     None
 
-let generate_one_aux ~uid_to_loc ~input_file tree =
+let generate_one_aux ~uid_to_loc tree =
   let uids = gather_uids tree in
   Shape.Uid.Tbl.iter
     (fun uid loc -> add uids uid (LocSet.singleton loc))
     uid_to_loc;
-  let file =
-    String.concat "." [Filename.remove_extension input_file; File_format.ext]
-  in
-  Log.debug "Writing %s\n%!" file;
-  File_format.write ~file uids
+  uids
 
 let generate_one input_file =
-  Log.debug "Generate: %s\n%!" input_file;
+  Log.debug "Gather uids from %s\n%!" input_file;
   match Cmt_format.read input_file with
   | _, Some cmt_infos ->
     Load_path.init cmt_infos.cmt_loadpath;
     begin match get_typedtree cmt_infos with
     | Some tree ->
-      generate_one_aux ~uid_to_loc:cmt_infos.cmt_uid_to_loc ~input_file tree
-    | None -> (* todo log error *) ()
+     Some (generate_one_aux ~uid_to_loc:cmt_infos.cmt_uid_to_loc tree)
+    | None -> (* todo log error *) None
     end
-  | _, _ -> (* todo log error *) ()
+  | _, _ -> (* todo log error *) None
 
-let generate = List.iter generate_one
+
+let generate ~output_file cmts =
+  let tbl = Hashtbl.create 256 in
+  List.iter (fun cmt ->
+    Option.iter (merge_tbl ~into:tbl) (generate_one cmt)
+    )  cmts;
+  Log.debug "Writing %s\n%!" output_file;
+  File_format.write ~file:output_file tbl
 
 let aggregate ~output_file =
   let tbl = Hashtbl.create 256 in

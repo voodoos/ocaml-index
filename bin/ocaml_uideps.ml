@@ -48,7 +48,7 @@ let () = try
   match !command, !input_files with
   | (Process | Aggregate | Dump), [] -> raise Too_few_files
   | Dump, _::_::_ -> raise Too_many_files
-  | Process, files -> Uideps.generate files
+  | Process, files -> Uideps.generate ~output_file:!output_file files
   | Dump, [file] -> File_format.(read ~file |> pp_payload Format.std_formatter)
   | Aggregate, _ -> Uideps.aggregate ~output_file:!output_file !input_files
   | Usage, _ -> Format.print_string usage_msg
