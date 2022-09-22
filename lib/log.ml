@@ -20,7 +20,7 @@ end
 
 
 let log_level =
-  ref Level.Error
+  ref Level.Warning
 let set_log_level level =
   log_level := level
 
