@@ -25,19 +25,25 @@ let gather_uids tree =
   Log.debug "Gather UIDS";
   let tbl = Hashtbl.create 64 in
   let module Shape_reduce =
-    Shape_reduce.Make (struct
+    Shape_reduce.Make_reduce (struct
       type env = Env.t
       let fuel = 10
-      let persist_memo = true
 
-      let read_unit_shape ~unit_name =
-        Log.debug "Read unit shape: %s\n%!" unit_name;
-        let cmt = String.concat "." [ unit_name; "cmt" ] in
+      let rec try_load ~unit_name ?(ext = "cmt") () =
+        let cmt = String.concat "." [ unit_name; ext ] in
         match Cmt_format.read (Load_path.find_uncap cmt) with
         | _, Some cmt_infos -> cmt_infos.cmt_impl_shape
         | _, None | exception Not_found ->
-          Log.warn "Failed to load cmt: %s\n%!" cmt;
-          None
+          if ext = "cmt" then
+            try_load ~unit_name ~ext:"cmti" ()
+          else begin
+            Log.error "Failed to load cmt/i: %s\n%!" cmt;
+            raise Not_found
+          end
+
+      let read_unit_shape ~unit_name =
+        Log.debug "Read unit shape: %s\n%!" unit_name;
+        try_load ~unit_name ()
 
       let find_shape env id =
         Env.shape_of_path ~namespace:Shape.Sig_component_kind.Module env
@@ -47,7 +53,7 @@ let gather_uids tree =
   in
   let iterator =
     let add_to_tbl ~env ~loc shape =
-      match (Shape_reduce.reduce env shape).uid with
+      match (Shape_reduce.weak_reduce env shape).uid with
       | Some uid -> add tbl uid (LocSet.singleton loc)
       | None -> ()
     in
@@ -69,6 +75,7 @@ let gather_uids tree =
           | _ -> ()
           end;
           Tast_iterator.default_iterator.expr sub e);
+
       module_expr =
         (fun sub ({ mod_desc; mod_loc; mod_env; _ } as me) ->
           begin match mod_desc with
@@ -85,6 +92,7 @@ let gather_uids tree =
           | _ -> ()
           end;
           Tast_iterator.default_iterator.module_expr sub me);
+
       typ =
         (fun sub ({ ctyp_desc; ctyp_loc; ctyp_env; _ } as me) ->
           begin match ctyp_desc with

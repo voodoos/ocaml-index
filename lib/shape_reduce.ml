@@ -1,26 +1,10 @@
 open Shape
 
-
-
-(**
-Risque de clash des Idents si on garde les memo pour des envs différents ?
-- au sein d'une même CU pas de soucis pour les env locaux car les idents ont des
-  numéros croissants
-- sinon risque d'utiliser une valeur mémoisiée invalide car elle dépend d'un
-  accès à l'environement et cela ce fait via des paths. Cela arrive:
-  - pour les parametres de foncteurs mais dans ce cas là il devrait renvoyer
-    LEaf
-  - pour les module rec il va récuperer la shape du module
-  - risque de clash arg foncteur / module rec
-
-*)
-
-module Make(Params : sig
+module Make_reduce(Params : sig
   type env
   val fuel : int
   val read_unit_shape : unit_name:string -> t option
   val find_shape : env -> Ident.t -> t
-  val persist_memo : bool
 end) = struct
   (* We implement a strong call-by-need reduction, following an
      evaluator from Nathanaelle Courant. *)
@@ -61,13 +45,6 @@ end) = struct
      actual substitutions, for example in [App(Abs(x, body), t)], when
      [v] is a thunk that will evaluate to the normal form of [t]. *)
 
-
-  let persistent_memo_tables :
-    ((local_env * t, nf) Hashtbl.t *
-      (nf, t) Hashtbl.t) option =
-    if Params.persist_memo then
-      Some (Hashtbl.create 42, Hashtbl.create 42)
-    else None
   let improve_uid uid (nf : nf) =
     match nf.uid with
     | Some _ -> nf
@@ -231,12 +208,50 @@ end) = struct
     | NComp_unit s -> Comp_unit s
     | NoFuelLeft t -> t
 
+  (* When in Merlin we don't need to perform full shape reduction since we are
+     only interested by uid's stored at the "top-level" of the shape once the
+     projections have been done. *)
+  let weak_read_back env (nf : nf) : t =
+    let cache = Hashtbl.create 42 in
+    let rec weak_read_back env nf =
+      let memo_key = (env.local_env, nf) in
+      in_memo_table cache memo_key (weak_read_back_ env) nf
+    and weak_read_back_ env nf : t =
+      { uid = nf.uid; desc = weak_read_back_desc env nf.desc }
+    and weak_read_back_desc env desc : desc =
+      let weak_read_back_no_force (Thunk (_local_env, t)) = t in
+      match desc with
+      | NVar v ->
+          Var v
+      | NApp (nft, nfu) ->
+          App(weak_read_back env nft, weak_read_back env nfu)
+      | NAbs (_env, x, _t, nf) ->
+          Abs(x, weak_read_back_no_force nf)
+      | NStruct nstr ->
+          Struct (Item.Map.map weak_read_back_no_force nstr)
+      | NProj (nf, item) ->
+          Proj (read_back env nf, item)
+      | NLeaf -> Leaf
+      | NComp_unit s -> Comp_unit s
+      | NoFuelLeft t -> t
+    in weak_read_back env nf
+
+
+
+(* Risque de clash des Idents si on garde les memo pour des envs différents ?
+- au sein d'une même CU pas de soucis pour les env locaux car les idents ont des
+  numéros croissants
+- sinon risque d'utiliser une valeur mémoisée invalide car elle dépend d'un
+  accès à l'environement et cela ce fait via des paths. Cela arrive:
+  - pour les parametres de foncteurs mais dans ce cas là il devrait renvoyer
+    Leaf
+  - pour les module rec il va récuperer la shape du module
+  - risque de clash arg foncteur / module rec *)
+
+  let reduce_memo_table = Hashtbl.create 42
+  let read_back_memo_table = Hashtbl.create 42
+
   let reduce global_env t =
-    let reduce_memo_table, read_back_memo_table =
-      match persistent_memo_tables with
-      | Some(r, rb) -> r, rb
-      | None -> Hashtbl.create 42, Hashtbl.create 42
-    in
     let fuel = ref Params.fuel in
     let local_env = Ident.Map.empty in
     let env = {
@@ -247,4 +262,16 @@ end) = struct
       local_env;
     } in
     reduce_ env t |> read_back env
+
+  let weak_reduce global_env t =
+    let fuel = ref Params.fuel in
+    let local_env = Ident.Map.empty in
+    let env = {
+      fuel;
+      global_env;
+      reduce_memo_table;
+      read_back_memo_table;
+      local_env;
+    } in
+    reduce_ env t |> weak_read_back env
 end
