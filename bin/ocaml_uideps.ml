@@ -46,7 +46,7 @@ let () = try
   if !verbose then Log.set_log_level Warning;
   if !debug then Log.set_log_level Debug;
   match !command, !input_files with
-  | (Process | Aggregate | Dump), [] -> raise Too_few_files
+  | (Aggregate | Dump), [] -> raise Too_few_files
   | Dump, _::_::_ -> raise Too_many_files
   | Process, files -> Uideps.generate ~output_file:!output_file files
   | Dump, [file] -> File_format.(read ~file |> pp_payload Format.std_formatter)
