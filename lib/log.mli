@@ -1,10 +1,6 @@
 module Level : sig
-  type t =
-    | Debug
-    | Warning
-    | Error
+  type t = Debug | Warning | Error
 end
-
 
 val set_log_level : Level.t -> unit
 val log : level:Level.t -> ('a, Format.formatter, unit, unit) format4 -> 'a

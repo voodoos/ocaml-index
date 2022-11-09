@@ -5,8 +5,6 @@ type file_format = V1 of payload
 
 val pp_payload : Format.formatter -> payload -> unit
 val pp : Format.formatter -> file_format -> unit
-
 val ext : string
-
 val write : file:string -> payload -> unit
 val read : file:string -> payload
