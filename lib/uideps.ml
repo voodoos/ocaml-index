@@ -138,11 +138,14 @@ let generate_one_aux ~uid_to_loc tree =
     uid_to_loc;
   uids
 
-let generate_one input_file =
+let generate_one ~build_path input_file =
   Log.debug "Gather uids from %s\n%!" input_file;
   match Cmt_format.read input_file with
   | _, Some cmt_infos ->
-    Load_path.init cmt_infos.cmt_loadpath;
+    let load_path =
+      List.merge String.compare cmt_infos.cmt_loadpath build_path
+    in
+    Load_path.init load_path;
     begin match get_typedtree cmt_infos with
     | Some tree ->
       Some (generate_one_aux ~uid_to_loc:cmt_infos.cmt_uid_to_loc tree)
@@ -150,10 +153,9 @@ let generate_one input_file =
     end
   | _, _ -> (* todo log error *) None
 
-let generate ~output_file cmts =
+let generate ~output_file ~build_path cmt =
   let tbl = Hashtbl.create 256 in
-  List.iter (fun cmt -> Option.iter (merge_tbl ~into:tbl) (generate_one cmt))
-    cmts;
+  Option.iter (merge_tbl ~into:tbl) (generate_one ~build_path cmt);
   Log.debug "Writing %s\n%!" output_file;
   File_format.write ~file:output_file tbl
 

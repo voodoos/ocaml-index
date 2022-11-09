@@ -17,7 +17,7 @@ let cmd_of_string = function
   | "dump" -> Dump
   | s -> raise (Unknown_command s)
 
-let usage_msg = "ocaml-uideps process-cmt <cmt> [<cmt>] ...
+let usage_msg = "ocaml-uideps process-cmt <cmt> [<build-path>] ...
 \nocaml-uideps aggregate -o <output> <uideps> [<uideps>] ...
 \nocaml-uideps dump <cmt>"
 
@@ -39,18 +39,19 @@ let anon_fun  =
 let speclist = [
   ("--verbose", Arg.Set verbose, "Output log information");
   ("--debug", Arg.Set debug, "Output debug information");
-  ("-o", Arg.Set_string output_file, "Set output file name")]
+  ("-o", Arg.Set_string output_file, "Set output file name");
+  ("--debug", Arg.Set debug, "Output debug information");]
 
 let () = try
   Arg.parse speclist anon_fun usage_msg;
   if !verbose then Log.set_log_level Warning;
   if !debug then Log.set_log_level Debug;
-  match !command, !input_files with
-  | (Aggregate | Dump), [] -> raise Too_few_files
+  match !command, List.rev !input_files with
+  | (Aggregate | Dump | Process), [] -> raise Too_few_files
   | Dump, _::_::_ -> raise Too_many_files
-  | Process, files -> Uideps.generate ~output_file:!output_file files
+  | Process, file::build_path -> Uideps.generate ~output_file:!output_file ~build_path file
   | Dump, [file] -> File_format.(read ~file |> pp_payload Format.std_formatter)
-  | Aggregate, _ -> Uideps.aggregate ~output_file:!output_file !input_files
+  | Aggregate, files -> Uideps.aggregate ~output_file:!output_file files
   | Usage, _ -> Format.print_string usage_msg
 with
   Unknown_command cmd -> Printf.eprintf "Unknown command %S." cmd; exit 2
