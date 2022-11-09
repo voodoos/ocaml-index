@@ -21,36 +21,42 @@ let rebuild_env env =
       Envaux.report_error e;
     env
 
+module Shape_reduce = Shape_reduce.Make_reduce (struct
+  type env = Env.t
+  let fuel = 10
+
+  let rec try_load ~unit_name ?(ext = "cmt") () =
+    let cmt = String.concat "." [ unit_name; ext ] in
+
+    match Cmt_format.read (Load_path.find_uncap cmt) with
+    | _, Some cmt_infos ->
+      cmt_infos.cmt_impl_shape
+    | _, None | exception Not_found ->
+      if ext = "cmt" then begin
+        Log.debug "Failed to load cmt: %s, attempting cmti"
+          cmt
+        ;
+        try_load ~unit_name ~ext:"cmti" () end
+      else begin
+        Log.error "Failed to load cmt(i): %s in load_path: [%s]"
+          cmt
+          @@ String.concat ":\n" (Load_path.get_paths ())
+        ;
+        raise Not_found
+      end
+
+  let read_unit_shape ~unit_name =
+    Log.debug "Read unit shape: %s\n%!" unit_name;
+    try_load ~unit_name ()
+
+  let find_shape env id =
+    Env.shape_of_path ~namespace:Shape.Sig_component_kind.Module env
+      (Pident id)
+end)
+
 let gather_uids tree =
   Log.debug "Gather UIDS";
   let tbl = Hashtbl.create 64 in
-  let module Shape_reduce =
-    Shape_reduce.Make_reduce (struct
-      type env = Env.t
-      let fuel = 10
-
-      let rec try_load ~unit_name ?(ext = "cmt") () =
-        let cmt = String.concat "." [ unit_name; ext ] in
-        match Cmt_format.read (Load_path.find_uncap cmt) with
-        | _, Some cmt_infos -> cmt_infos.cmt_impl_shape
-        | _, None | exception Not_found ->
-          if ext = "cmt" then
-            try_load ~unit_name ~ext:"cmti" ()
-          else begin
-            Log.error "Failed to load cmt/i: %s\n%!" cmt;
-            raise Not_found
-          end
-
-      let read_unit_shape ~unit_name =
-        Log.debug "Read unit shape: %s\n%!" unit_name;
-        try_load ~unit_name ()
-
-      let find_shape env id =
-        Env.shape_of_path ~namespace:Shape.Sig_component_kind.Module env
-          (Pident id)
-    end)
-
-  in
   let iterator =
     let add_to_tbl ~env ~loc shape =
       match (Shape_reduce.weak_reduce env shape).uid with
