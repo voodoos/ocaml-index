@@ -17,9 +17,14 @@
 
   $ ocamlc -bin-annot -c bar.ml foo.ml main.ml
 
-  $ ocaml-uideps process-cmt -o main.uideps main.cmt foo.cmt bar.cmt
+  $ ocaml-uideps process-cmt -o main.uideps main.cmt
+  $ ocaml-uideps process-cmt -o foo.uideps foo.cmt
+  $ ocaml-uideps process-cmt -o bar.uideps bar.cmt
 
-  $ ocaml-uideps dump main.uideps
+  $ ocaml-uideps aggregate -o test.uideps main.uideps foo.uideps bar.uideps
+
+
+  $ ocaml-uideps dump test.uideps
   {uid: Foo.2; locs: File "foo.ml", line 3, characters 4-5;
                      File "main.ml", line 1, characters 16-21;
                      File "main.ml", line 2, characters 8-13
