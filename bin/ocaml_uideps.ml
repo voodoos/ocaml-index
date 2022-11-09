@@ -51,7 +51,7 @@ let () =
     if !verbose then Log.set_log_level Warning;
     if !debug then Log.set_log_level Debug;
     match (!command, List.rev !input_files) with
-    | (Aggregate | Dump | Process), [] -> raise Too_few_files
+    | (Dump | Process), [] -> raise Too_few_files
     | Dump, _ :: _ :: _ -> raise Too_many_files
     | Process, file :: build_path ->
         Uideps.generate ~output_file:!output_file ~build_path file
