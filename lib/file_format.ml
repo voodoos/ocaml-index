@@ -15,7 +15,12 @@ end
 
 module LocSet = Set.Make (Loc)
 
-type payload = (Shape.Uid.t, LocSet.t) Hashtbl.t
+type payload = {
+  defs : (Shape.Uid.t, LocSet.t) Hashtbl.t;
+  partial : (Location.t  * Shape.t * Env.t) list;
+  load_path : string list
+}
+
 type file_format = V1 of payload
 
 let pp_payload (fmt : Format.formatter) pl =
@@ -27,8 +32,9 @@ let pp_payload (fmt : Format.formatter) pl =
            ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@;")
            Location.print_loc)
         (LocSet.elements locs))
-    pl;
-  Format.fprintf fmt "@]}@,"
+    pl.defs;
+  Format.fprintf fmt "@]}@,";
+  Format.fprintf fmt "And %i partial shapes." (List.length pl.partial)
 
 let pp (fmt : Format.formatter) ff =
   match ff with V1 tbl -> Format.fprintf fmt "V1@,%a" pp_payload tbl
@@ -37,7 +43,7 @@ let ext = "uideps"
 
 let write ~file tbl =
   let oc = open_out_bin file in
-  Marshal.to_channel oc (V1 tbl) [];
+  Marshal.to_channel oc (V1 tbl) [Closures];
   close_out oc
 
 let read ~file =
