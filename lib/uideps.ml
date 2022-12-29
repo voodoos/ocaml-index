@@ -24,6 +24,7 @@ module Reduce_common = struct
   type env = Env.t
 
   let fuel = 10
+
   let find_shape env id =
     Env.shape_of_path ~namespace:Shape.Sig_component_kind.Module env (Pident id)
 end
@@ -51,6 +52,7 @@ module Shape_full_reduce = Shape_reduce.Make_reduce (struct
 end)
 
 let incomplete = ref false
+
 module Shape_local_reduce = Shape_reduce.Make_reduce (struct
   include Reduce_common
 
@@ -130,28 +132,6 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
       Log.debug "No typedtree\n%!";
       None
 
-      (*
-
-
-      let reduced_shape = Shape_local_reduce.weak_reduce env shape in
-      if !incomplete then
-        ()
-      else begin
-        match reduced_shape.uid with
-        | Some uid -> add tbl_defs uid (LocSet.singleton loc)
-        | None -> ()
-
-        *)
-(* let generate_one_aux ~uid_to_loc tree =
-  let shapes = gather_shapes tree in
-  let uids = uid_to_loc in
-
-
-  Shape.Uid.Tbl.iter
-    (fun uid loc -> add uids uid (LocSet.singleton loc))
-    uid_to_loc;
-  uids *)
-
 let from_tbl uid_to_loc =
   let tbl = Hashtbl.create 128 in
   Shape.Uid.Tbl.iter
@@ -176,14 +156,11 @@ let generate_one ~build_path input_file =
   | _, _ -> (* todo log error *) None
 
 let generate ~output_file ~build_path cmt =
-  (* let tbl_shapes = Hashtbl.create 256 in
-  let tbl_partial = Comparable_shape.Map.empty in *)
-  (* Option.iter (merge_tbl ~into:tbl_shapes) (generate_one ~build_path cmt); *)
   Log.debug "Writing %s\n%!" output_file;
-  let payload = match
-    generate_one ~build_path cmt with
+  let payload =
+    match generate_one ~build_path cmt with
     | Some pl -> pl
-    | None -> { defs = (Hashtbl.create 0); partial = []; load_path = [] }
+    | None -> { defs = Hashtbl.create 0; partial = []; load_path = [] }
   in
   File_format.write ~file:output_file payload
 
@@ -193,12 +170,14 @@ let aggregate ~output_file =
     let pl = File_format.read ~file in
     merge_tbl pl.defs ~into:tbl;
     Load_path.init pl.load_path;
-    List.iter (fun (loc, shape, env) ->
-      match (Shape_full_reduce.weak_reduce env shape).uid with
-      | Some uid -> add tbl uid @@ LocSet.singleton loc
-      | None -> ()
-       ) pl.partial
+    List.iter
+      (fun (loc, shape, env) ->
+        match (Shape_full_reduce.weak_reduce env shape).uid with
+        | Some uid -> add tbl uid @@ LocSet.singleton loc
+        | None -> ())
+      pl.partial
   in
   fun files ->
     List.iter merge_file files;
-    File_format.write ~file:output_file { defs = tbl; partial = []; load_path = [] }
+    File_format.write ~file:output_file
+      { defs = tbl; partial = []; load_path = [] }

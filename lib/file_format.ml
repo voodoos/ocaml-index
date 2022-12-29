@@ -17,8 +17,8 @@ module LocSet = Set.Make (Loc)
 
 type payload = {
   defs : (Shape.Uid.t, LocSet.t) Hashtbl.t;
-  partial : (Location.t  * Shape.t * Env.t) list;
-  load_path : string list
+  partial : (Location.t * Shape.t * Env.t) list;
+  load_path : string list;
 }
 
 type file_format = V1 of payload
@@ -43,7 +43,7 @@ let ext = "uideps"
 
 let write ~file tbl =
   let oc = open_out_bin file in
-  Marshal.to_channel oc (V1 tbl) [Closures];
+  Marshal.to_channel oc (V1 tbl) [ Closures ];
   close_out oc
 
 let read ~file =
@@ -51,7 +51,7 @@ let read ~file =
   try
     let payload =
       match Marshal.from_channel ic with V1 payload -> payload
-      (* TODO is that "safe" ? *)
+      (* TODO is that "safe" ? We probably want some magic number *)
     in
     close_in ic;
     payload
