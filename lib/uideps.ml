@@ -49,6 +49,12 @@ module Shape_full_reduce = Shape_reduce.Make_reduce (struct
   let read_unit_shape ~unit_name =
     Log.debug "Read unit shape: %s\n%!" unit_name;
     try_load ~unit_name ()
+
+  let find_shape env id =
+    (* When partial reduction is performed only the summary of the env is stored
+       on the filesystem. We need to reconstitute the complete envoronment but we do it only if we need it. *)
+    let env = rebuild_env env in
+    find_shape env id
 end)
 
 module Shape_local_reduce = Shape_reduce.Make_reduce (struct
@@ -63,7 +69,8 @@ let gather_shapes tree =
   let iterator =
     let register_loc ~env ~loc shape =
       let shape = Shape_local_reduce.weak_reduce env shape in
-      shapes := (loc, shape, env) :: !shapes
+      let summary = Env.keep_only_summary env in
+      shapes := (loc, shape, summary) :: !shapes
     in
     {
       Tast_iterator.default_iterator with

@@ -43,7 +43,7 @@ let ext = "uideps"
 
 let write ~file tbl =
   let oc = open_out_bin file in
-  Marshal.to_channel oc (V1 tbl) [ Closures ];
+  Marshal.to_channel oc (V1 tbl) [];
   close_out oc
 
 let read ~file =
