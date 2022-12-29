@@ -51,14 +51,10 @@ module Shape_full_reduce = Shape_reduce.Make_reduce (struct
     try_load ~unit_name ()
 end)
 
-let incomplete = ref false
-
 module Shape_local_reduce = Shape_reduce.Make_reduce (struct
   include Reduce_common
 
-  let read_unit_shape ~unit_name:_ =
-    incomplete := true;
-    None
+  let read_unit_shape ~unit_name:_ = None
 end)
 
 let gather_shapes tree =
