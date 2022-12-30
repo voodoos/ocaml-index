@@ -15,8 +15,8 @@ and merge them in a signle one.
 - Group the resulting indexes together by calling `ocaml-uideps aggregate
   <index1.uideps> ... <indexn.uideps> -o project.uideps`
 
-In the current version, generating the index for a given CMT file has the same
-dependency cone than linking the corresponding compilation unit. This is due to
-the process of determining a value's definition that requires loading the CMT
-file of the compilation unit where this value is defined.
-
+In the current version, generating the index for a given CMT file has no
+dependencies: shapes are only reduced locally. At least one aggregate phase is
+required for shapes to be reduced fully by loading required cmt files. This
+means that aggregation of a set of module indexes require all the cmt of the
+link dependencies of the corresponding modules to be already built.
