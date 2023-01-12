@@ -35,7 +35,7 @@
                      File "main.ml", line 2, characters 12-13
    uid: Main.0; locs: File "main.ml", line 1, characters 4-5
    uid: Foo.0; locs: File "foo.ml", line 1, characters 0-6;
-                     File "main.ml", line 3, characters 13-18
+                     File "main.ml", line 3, characters 17-18
    uid: Foo; locs: File "main.ml", line 4, characters 8-11
    uid: Main.1; locs: File "main.ml", line 2, characters 4-5
    uid: Foo.1; locs: File "foo.ml", line 2, characters 4-5;
