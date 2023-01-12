@@ -31,8 +31,8 @@
 
   $ ocaml-uideps dump test.uideps
   {uid: Foo.2; locs: File "foo.ml", line 3, characters 4-5;
-                     File "main.ml", line 1, characters 16-21;
-                     File "main.ml", line 2, characters 8-13
+                     File "main.ml", line 1, characters 20-21;
+                     File "main.ml", line 2, characters 12-13
    uid: Main.0; locs: File "main.ml", line 1, characters 4-5
    uid: Foo.0; locs: File "foo.ml", line 1, characters 0-6;
                      File "main.ml", line 3, characters 13-18
@@ -40,10 +40,10 @@
    uid: Main.1; locs: File "main.ml", line 2, characters 4-5
    uid: Foo.1; locs: File "foo.ml", line 2, characters 4-5;
                      File "foo.ml", line 3, characters 21-22;
-                     File "main.ml", line 1, characters 8-13
+                     File "main.ml", line 1, characters 12-13
    uid: Bar.0; locs: File "bar.ml", line 1, characters 4-5;
-                     File "foo.ml", line 3, characters 13-18;
-                     File "main.ml", line 2, characters 16-21
+                     File "foo.ml", line 3, characters 17-18;
+                     File "main.ml", line 2, characters 20-21
    uid: Stdlib.55; locs: File "foo.ml", line 3, characters 11-12;
                          File "foo.ml", line 3, characters 19-20;
                          File "main.ml", line 1, characters 14-15;

@@ -63,6 +63,21 @@ module Shape_local_reduce = Shape_reduce.Make_reduce (struct
   let read_unit_shape ~unit_name:_ = None
 end)
 
+(* A longident can have the form: A.B.x Right now we are only interested in
+   values, but we will eventually want to index all occurrences of modules in
+   such longidents. However there is an issue with that: we only have the
+   location of the complete longident which might span multiple lines. This is
+   enough to get the last component since it will always be on the last line,
+   but will prevent us to find the location of previous components. *)
+let last_loc (loc : Location.t) lid =
+  let last_size = Longident.last lid |> String.length in
+  { loc with
+    loc_start = { loc.loc_end with
+      pos_cnum = loc.loc_end.pos_cnum - last_size;
+    }
+  }
+
+
 let gather_shapes tree =
   Log.debug "Gather SHAPES";
   let shapes = ref [] in
@@ -75,42 +90,45 @@ let gather_shapes tree =
     {
       Tast_iterator.default_iterator with
       expr =
-        (fun sub ({ exp_desc; exp_loc; exp_env; _ } as e) ->
+        (fun sub ({ exp_desc; exp_env; _ } as e) ->
           (match exp_desc with
-          | Texp_ident (path, _, { val_uid = _; _ }) -> (
+          | Texp_ident (path, ident, { val_uid = _; _ }) -> (
               try
                 let env = rebuild_env exp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Value env path in
-                register_loc ~env ~loc:exp_loc shape
+                let loc = last_loc ident.loc ident.txt in
+                register_loc ~env ~loc shape
               with Not_found ->
                 Log.warn "No shape for expr %a at %a" Path.print path
-                  Location.print_loc exp_loc)
+                  Location.print_loc ident.loc)
           | _ -> ());
           Tast_iterator.default_iterator.expr sub e);
       module_expr =
-        (fun sub ({ mod_desc; mod_loc; mod_env; _ } as me) ->
+        (fun sub ({ mod_desc; mod_env; _ } as me) ->
           (match mod_desc with
-          | Tmod_ident (path, _lid) -> (
+          | Tmod_ident (path, lid) -> (
               try
                 let env = rebuild_env mod_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Module env path in
-                register_loc ~env ~loc:mod_loc shape
+                let loc = last_loc lid.loc lid.txt in
+                register_loc ~env ~loc shape
               with Not_found ->
                 Log.warn "No shape for module %a at %a\n%!" Path.print path
-                  Location.print_loc mod_loc)
+                  Location.print_loc lid.loc)
           | _ -> ());
           Tast_iterator.default_iterator.module_expr sub me);
       typ =
-        (fun sub ({ ctyp_desc; ctyp_loc; ctyp_env; _ } as me) ->
+        (fun sub ({ ctyp_desc; ctyp_env; _ } as me) ->
           (match ctyp_desc with
-          | Ttyp_constr (path, _lid, _ctyps) -> (
+          | Ttyp_constr (path, lid, _ctyps) -> (
               try
                 let env = rebuild_env ctyp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Type env path in
-                register_loc ~env ~loc:ctyp_loc shape
+                let loc = last_loc lid.loc lid.txt in
+                register_loc ~env ~loc shape
               with Not_found ->
                 Log.warn "No shape for type %a at %a" Path.print path
-                  Location.print_loc ctyp_loc)
+                  Location.print_loc lid.loc)
           | _ -> ());
           Tast_iterator.default_iterator.typ sub me);
     }
