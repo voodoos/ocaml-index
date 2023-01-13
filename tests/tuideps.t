@@ -30,36 +30,41 @@
 
 FIXME: Main.0 and Main.1 are not exposed, it is useless to register them
   $ ocaml-uideps dump main.uideps
-  {uid: Main.1; locs: File "main.ml", line 2, characters 4-5
-   uid: Main.2; locs: File "main.ml", line 3, characters 5-10
-   uid: Main.0; locs: File "main.ml", line 1, characters 4-5}
+  {uid: Main.1; locs: "y": File "main.ml", line 2, characters 4-5
+   uid: Main.2; locs: "pouet": File "main.ml", line 3, characters 5-10
+   uid: Main.0; locs: "x": File "main.ml", line 1, characters 4-5 }
   And 8 partial shapes.
 
   $ ocaml-uideps dump foo.uideps
-  {uid: Foo.1; locs: File "foo.ml", line 2, characters 4-5
-   uid: Foo.2; locs: File "foo.ml", line 3, characters 4-5
-   uid: Foo.0; locs: File "foo.ml", line 1, characters 5-6}
+  {uid: Foo.1; locs: "x": File "foo.ml", line 2, characters 4-5
+   uid: Foo.2; locs: "y": File "foo.ml", line 3, characters 4-5
+   uid: Foo.0; locs: "t": File "foo.ml", line 1, characters 5-6 }
   And 4 partial shapes.
 
   $ ocaml-uideps dump test.uideps
-  {uid: Foo.2; locs: File "foo.ml", line 3, characters 4-5;
-                     File "main.ml", line 1, characters 16-21;
-                     File "main.ml", line 2, characters 8-13
-   uid: Main.0; locs: File "main.ml", line 1, characters 4-5
-   uid: Foo.0; locs: File "foo.ml", line 1, characters 5-6;
-                     File "main.ml", line 3, characters 13-18
-   uid: Foo; locs: File "main.ml", line 4, characters 8-11
-   uid: Main.1; locs: File "main.ml", line 2, characters 4-5
-   uid: Foo.1; locs: File "foo.ml", line 2, characters 4-5;
-                     File "foo.ml", line 3, characters 21-22;
-                     File "main.ml", line 1, characters 8-13
-   uid: Bar.0; locs: File "bar.ml", line 1, characters 4-5;
-                     File "foo.ml", line 3, characters 13-18;
-                     File "main.ml", line 2, characters 16-21
-   uid: Stdlib.55; locs: File "foo.ml", line 3, characters 11-12;
-                         File "foo.ml", line 3, characters 19-20;
-                         File "main.ml", line 1, characters 14-15;
-                         File "main.ml", line 2, characters 14-15
-   uid: Main.2; locs: File "main.ml", line 3, characters 5-10}
+  {uid: Foo.2; locs:
+     "y": File "foo.ml", line 3, characters 4-5;
+     "Foo.y": File "main.ml", line 1, characters 16-21;
+     "Foo.y": File "main.ml", line 2, characters 8-13
+   uid: Main.0; locs: "x": File "main.ml", line 1, characters 4-5
+   uid: Foo.0; locs:
+     "t": File "foo.ml", line 1, characters 5-6;
+     "Foo.t": File "main.ml", line 3, characters 13-18
+   uid: Foo; locs: "Foo": File "main.ml", line 4, characters 8-11
+   uid: Main.1; locs: "y": File "main.ml", line 2, characters 4-5
+   uid: Foo.1; locs:
+     "x": File "foo.ml", line 2, characters 4-5;
+     "x": File "foo.ml", line 3, characters 21-22;
+     "Foo.x": File "main.ml", line 1, characters 8-13
+   uid: Bar.0; locs:
+     "z": File "bar.ml", line 1, characters 4-5;
+     "Bar.z": File "foo.ml", line 3, characters 13-18;
+     "Bar.z": File "main.ml", line 2, characters 16-21
+   uid: Stdlib.55; locs:
+     "+": File "foo.ml", line 3, characters 11-12;
+     "+": File "foo.ml", line 3, characters 19-20;
+     "+": File "main.ml", line 1, characters 14-15;
+     "+": File "main.ml", line 2, characters 14-15
+   uid: Main.2; locs: "pouet": File "main.ml", line 3, characters 5-10 }
   And 0 partial shapes.
 

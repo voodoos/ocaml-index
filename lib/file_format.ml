@@ -27,11 +27,15 @@ let pp_payload (fmt : Format.formatter) pl =
   Format.fprintf fmt "{@[";
   Hashtbl.iter
     (fun uid locs ->
-      Format.fprintf fmt "uid: %a; locs: @[%a@]@," Shape.Uid.print uid
+      Format.fprintf fmt "@[<hov 2>uid: %a; locs:@ @[<v>%a@]@]@;"
+        Shape.Uid.print uid
         (Format.pp_print_list
            ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@;")
-           (fun fmt -> Format.fprintf fmt "%a" Location.print_loc))
-        (LidSet.elements locs |> List.map (fun lid -> lid.Location.loc)))
+           (fun fmt { Location.txt; loc } ->
+             Format.fprintf fmt "%S: %a"
+               (Longident.flatten txt |> String.concat ".")
+               Location.print_loc loc))
+        (LidSet.elements locs))
     pl.defs;
   Format.fprintf fmt "@]}@,";
   Format.fprintf fmt "And %i partial shapes." (List.length pl.partial)
