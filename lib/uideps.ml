@@ -127,8 +127,6 @@ let gather_shapes ~final_env defs tree =
                         let lid = Longident.Lident name.txt in
                         let path = Path.Pident id in
                         let vd = Env.find_value path final_env in
-                        Format.eprintf "INSTRVAL %s %a\n" name.txt
-                          Shape.Uid.print vd.val_uid;
                         register_def vd.val_uid
                           { Location.txt = lid; loc = name.loc }
                     | _ -> ()
