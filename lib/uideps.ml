@@ -8,7 +8,7 @@ type typedtree =
 let add tbl uid locs =
   try
     let locations = Hashtbl.find tbl uid in
-    Hashtbl.replace tbl uid (LocSet.union locs locations)
+    Hashtbl.replace tbl uid (LidSet.union locs locations)
   with Not_found -> Hashtbl.add tbl uid locs
 
 let merge_tbl ~into tbl = Hashtbl.iter (add into) tbl
@@ -63,44 +63,29 @@ module Shape_local_reduce = Shape_reduce.Make_reduce (struct
   let read_unit_shape ~unit_name:_ = None
 end)
 
-(* A longident can have the form: A.B.x Right now we are only interested in
-   values, but we will eventually want to index all occurrences of modules in
-   such longidents. However there is an issue with that: we only have the
-   location of the complete longident which might span multiple lines. This is
-   enough to get the last component since it will always be on the last line,
-   but will prevent us to find the location of previous components. *)
-let last_loc (loc : Location.t) lid =
-  let last_size = Longident.last lid |> String.length in
-  { loc with
-    loc_start = { loc.loc_end with
-      pos_cnum = loc.loc_end.pos_cnum - last_size;
-    }
-  }
-
-
-let gather_shapes tree =
+let gather_shapes ~final_env defs tree =
   Log.debug "Gather SHAPES";
   let shapes = ref [] in
   let iterator =
-    let register_loc ~env ~loc shape =
+    let register_def uid lid = add defs uid @@ LidSet.singleton lid in
+    let register_loc ~env ~lid shape =
       let shape = Shape_local_reduce.weak_reduce env shape in
       let summary = Env.keep_only_summary env in
-      shapes := (loc, shape, summary) :: !shapes
+      shapes := (lid, shape, summary) :: !shapes
     in
     {
       Tast_iterator.default_iterator with
       expr =
         (fun sub ({ exp_desc; exp_env; _ } as e) ->
           (match exp_desc with
-          | Texp_ident (path, ident, { val_uid = _; _ }) -> (
+          | Texp_ident (path, lid, { val_uid = _; _ }) -> (
               try
                 let env = rebuild_env exp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Value env path in
-                let loc = last_loc ident.loc ident.txt in
-                register_loc ~env ~loc shape
+                register_loc ~env ~lid shape
               with Not_found ->
                 Log.warn "No shape for expr %a at %a" Path.print path
-                  Location.print_loc ident.loc)
+                  Location.print_loc lid.loc)
           | _ -> ());
           Tast_iterator.default_iterator.expr sub e);
       module_expr =
@@ -110,8 +95,7 @@ let gather_shapes tree =
               try
                 let env = rebuild_env mod_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Module env path in
-                let loc = last_loc lid.loc lid.txt in
-                register_loc ~env ~loc shape
+                register_loc ~env ~lid shape
               with Not_found ->
                 Log.warn "No shape for module %a at %a\n%!" Path.print path
                   Location.print_loc lid.loc)
@@ -124,13 +108,44 @@ let gather_shapes tree =
               try
                 let env = rebuild_env ctyp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Type env path in
-                let loc = last_loc lid.loc lid.txt in
-                register_loc ~env ~loc shape
+                register_loc ~env ~lid shape
               with Not_found ->
                 Log.warn "No shape for type %a at %a" Path.print path
                   Location.print_loc lid.loc)
           | _ -> ());
           Tast_iterator.default_iterator.typ sub me);
+      structure_item =
+        (fun sub ({ str_desc; _ } as si) ->
+          (match str_desc with
+          | Tstr_value (_, bindings) ->
+              List.iter
+                (fun vb ->
+                  try
+                    match vb.Typedtree.vb_pat.pat_desc with
+                    | Tpat_var (id, name) ->
+                        let lid = Longident.Lident name.txt in
+                        let path = Path.Pident id in
+                        let vd = Env.find_value path final_env in
+                        Format.eprintf "INSTRVAL %s %a\n" name.txt
+                          Shape.Uid.print vd.val_uid;
+                        register_def vd.val_uid
+                          { Location.txt = lid; loc = name.loc }
+                    | _ -> ()
+                  with _ -> ())
+                bindings
+          | Tstr_type (_, decls) ->
+              List.iter
+                (fun (decl : Typedtree.type_declaration) ->
+                  let lid =
+                    {
+                      decl.typ_name with
+                      txt = Longident.Lident decl.typ_name.txt;
+                    }
+                  in
+                  register_def decl.typ_type.type_uid lid)
+                decls
+          | _ -> ());
+          Tast_iterator.default_iterator.structure_item sub si);
     }
   in
   (match tree with
@@ -144,11 +159,11 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
   | Interface s ->
       Log.debug "Interface\n%!";
       let sig_final_env = rebuild_env s.sig_final_env in
-      Some (Interface { s with sig_final_env })
+      Some (Interface { s with sig_final_env }, sig_final_env)
   | Implementation str ->
       Log.debug "Implementation\n%!";
       let str_final_env = rebuild_env str.str_final_env in
-      Some (Implementation { str with str_final_env })
+      Some (Implementation { str with str_final_env }, str_final_env)
   | _ ->
       Log.debug "No typedtree\n%!";
       None
@@ -156,7 +171,7 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
 let from_tbl uid_to_loc =
   let tbl = Hashtbl.create 128 in
   Shape.Uid.Tbl.iter
-    (fun uid loc -> Hashtbl.add tbl uid (LocSet.singleton loc))
+    (fun uid loc -> Hashtbl.add tbl uid (LidSet.singleton loc))
     uid_to_loc;
   tbl
 
@@ -169,9 +184,9 @@ let generate_one ~build_path input_file =
       in
       Load_path.init load_path;
       match get_typedtree cmt_infos with
-      | Some tree ->
-          let partial_shapes = gather_shapes tree in
-          let defs = from_tbl cmt_infos.cmt_uid_to_loc in
+      | Some (tree, final_env) ->
+          let defs = Hashtbl.create 128 in
+          let partial_shapes = gather_shapes ~final_env defs tree in
           Some { defs; partial = partial_shapes; load_path }
       | None -> (* todo log error *) None)
   | _, _ -> (* todo log error *) None
@@ -194,7 +209,7 @@ let aggregate ~output_file =
     List.iter
       (fun (loc, shape, env) ->
         match (Shape_full_reduce.weak_reduce env shape).uid with
-        | Some uid -> add tbl uid @@ LocSet.singleton loc
+        | Some uid -> add tbl uid @@ LidSet.singleton loc
         | None -> ())
       pl.partial
   in

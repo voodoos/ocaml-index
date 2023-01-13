@@ -1,8 +1,8 @@
-module LocSet : Set.S with type elt = Location.t
+module LidSet : Set.S with type elt = Longident.t Location.loc
 
 type payload = {
-  defs : (Shape.Uid.t, LocSet.t) Hashtbl.t;
-  partial : (Location.t * Shape.t * Env.t) list;
+  defs : (Shape.Uid.t, LidSet.t) Hashtbl.t;
+  partial : (Longident.t Location.loc * Shape.t * Env.t) list;
   load_path : string list;
 }
 

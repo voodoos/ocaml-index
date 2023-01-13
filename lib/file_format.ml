@@ -1,5 +1,5 @@
-module Loc : Set.OrderedType with type t = Location.t = struct
-  type t = Location.t
+module Lid : Set.OrderedType with type t = Longident.t Location.loc = struct
+  type t = Longident.t Location.loc
 
   let compare_pos (p1 : Lexing.position) (p2 : Lexing.position) =
     match String.compare p1.pos_fname p2.pos_fname with
@@ -8,16 +8,16 @@ module Loc : Set.OrderedType with type t = Location.t = struct
 
   let compare (t1 : t) (t2 : t) =
     (* TODO CHECK...*)
-    match compare_pos t1.loc_start t2.loc_start with
-    | 0 -> compare_pos t1.loc_end t2.loc_end
+    match compare_pos t1.loc.loc_start t2.loc.loc_start with
+    | 0 -> compare_pos t1.loc.loc_end t2.loc.loc_end
     | n -> n
 end
 
-module LocSet = Set.Make (Loc)
+module LidSet = Set.Make (Lid)
 
 type payload = {
-  defs : (Shape.Uid.t, LocSet.t) Hashtbl.t;
-  partial : (Location.t * Shape.t * Env.t) list;
+  defs : (Shape.Uid.t, LidSet.t) Hashtbl.t;
+  partial : (Longident.t Location.loc * Shape.t * Env.t) list;
   load_path : string list;
 }
 
@@ -30,8 +30,8 @@ let pp_payload (fmt : Format.formatter) pl =
       Format.fprintf fmt "uid: %a; locs: @[%a@]@," Shape.Uid.print uid
         (Format.pp_print_list
            ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@;")
-           Location.print_loc)
-        (LocSet.elements locs))
+           (fun fmt -> Format.fprintf fmt "%a" Location.print_loc))
+        (LidSet.elements locs |> List.map (fun lid -> lid.Location.loc)))
     pl.defs;
   Format.fprintf fmt "@]}@,";
   Format.fprintf fmt "And %i partial shapes." (List.length pl.partial)
