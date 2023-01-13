@@ -88,7 +88,8 @@ let gather_shapes ~final_env defs tree =
                   Location.print_loc lid.loc)
           | _ -> ());
           Tast_iterator.default_iterator.expr sub e);
-      module_expr =
+      (* Only types and values are indexed right now *)
+      (* module_expr =
         (fun sub ({ mod_desc; mod_env; _ } as me) ->
           (match mod_desc with
           | Tmod_ident (path, lid) -> (
@@ -100,7 +101,7 @@ let gather_shapes ~final_env defs tree =
                 Log.warn "No shape for module %a at %a\n%!" Path.print path
                   Location.print_loc lid.loc)
           | _ -> ());
-          Tast_iterator.default_iterator.module_expr sub me);
+          Tast_iterator.default_iterator.module_expr sub me); *)
       typ =
         (fun sub ({ ctyp_desc; ctyp_env; _ } as me) ->
           (match ctyp_desc with
