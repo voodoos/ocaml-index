@@ -78,7 +78,7 @@ let gather_shapes ~final_env defs tree =
       expr =
         (fun sub ({ exp_desc; exp_env; _ } as e) ->
           (match exp_desc with
-          | Texp_ident (path, lid, { val_uid = _; _ }) -> (
+          | Texp_ident (path, lid, _) -> (
               try
                 let env = rebuild_env exp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Value env path in
@@ -89,19 +89,6 @@ let gather_shapes ~final_env defs tree =
           | _ -> ());
           Tast_iterator.default_iterator.expr sub e);
       (* Only types and values are indexed right now *)
-      (* module_expr =
-        (fun sub ({ mod_desc; mod_env; _ } as me) ->
-          (match mod_desc with
-          | Tmod_ident (path, lid) -> (
-              try
-                let env = rebuild_env mod_env in
-                let shape = Env.shape_of_path ~namespace:Kind.Module env path in
-                register_loc ~env ~lid shape
-              with Not_found ->
-                Log.warn "No shape for module %a at %a\n%!" Path.print path
-                  Location.print_loc lid.loc)
-          | _ -> ());
-          Tast_iterator.default_iterator.module_expr sub me); *)
       typ =
         (fun sub ({ ctyp_desc; ctyp_env; _ } as me) ->
           (match ctyp_desc with
