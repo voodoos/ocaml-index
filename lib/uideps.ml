@@ -63,8 +63,29 @@ module Shape_local_reduce = Shape_reduce.Make_reduce (struct
   let read_unit_shape ~unit_name:_ = None
 end)
 
-let gather_shapes ~final_env defs tree =
+(* Storing locations of values whose definitions are not exposed by the current
+   compilation unit is wasteful. As a first approximation we simply look if the
+   defnition's shape is part of the public shapes stored in the CMT. *)
+let exposed ~public_shapes =
+  let open Shape in
+  (* We gather (once) the uids of all leaf in the public shapes *)
+  let rec aux acc = function
+    | { desc = Leaf; uid = Some uid } -> Uid.Map.add uid () acc
+    | { desc = Struct map; _ } ->
+        Item.Map.fold (fun _item shape acc -> aux acc shape) map acc
+    | _ -> acc
+  in
+  let public_uids = aux Uid.Map.empty public_shapes in
+  (* If the tested shape is a leaf we check if its uid is public *)
+  function
+  | { desc = Leaf; uid = Some uid } -> Uid.Map.mem uid public_uids
+  | _ -> true (* in doubt, store it *)
+
+let gather_shapes ~final_env:_ shapes defs tree =
   Log.debug "Gather SHAPES";
+  (* Todo: handle error even if it should not happen *)
+  let public_shapes : Shape.t = Option.get shapes in
+  let exposed = exposed ~public_shapes in
   let shapes = ref [] in
   let iterator =
     let register_def uid lid = add defs uid @@ LidSet.singleton lid in
@@ -82,7 +103,7 @@ let gather_shapes ~final_env defs tree =
               try
                 let env = rebuild_env exp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Value env path in
-                register_loc ~env ~lid shape
+                if exposed shape then register_loc ~env ~lid shape
               with Not_found ->
                 Log.warn "No shape for expr %a at %a" Path.print path
                   Location.print_loc lid.loc)
@@ -96,7 +117,7 @@ let gather_shapes ~final_env defs tree =
               try
                 let env = rebuild_env ctyp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Type env path in
-                register_loc ~env ~lid shape
+                if exposed shape then register_loc ~env ~lid shape
               with Not_found ->
                 Log.warn "No shape for type %a at %a" Path.print path
                   Location.print_loc lid.loc)
@@ -139,8 +160,9 @@ let gather_shapes ~final_env defs tree =
                           let path = Path.Pident id in
                           try
                             let vd = Env.find_value path env in
-                            register_def vd.val_uid
-                              { Location.txt = lid; loc = name.loc }
+                            if exposed @@ Shape.leaf vd.val_uid then
+                              register_def vd.val_uid
+                                { Location.txt = lid; loc = name.loc }
                           with Not_found -> ())
                         vb.Typedtree.vb_pat)
                     bindings
@@ -154,7 +176,7 @@ let gather_shapes ~final_env defs tree =
                         }
                       in
                       let uid = decl.typ_type.type_uid in
-                      register_def uid lid)
+                      if exposed @@ Shape.leaf uid then register_def uid lid)
                     decls
               | _ -> ());
               Tast_iterator.default_iterator.structure_item sub si)
@@ -199,7 +221,9 @@ let generate_one ~build_path input_file =
       match get_typedtree cmt_infos with
       | Some (tree, final_env) ->
           let defs = Hashtbl.create 128 in
-          let partial_shapes = gather_shapes ~final_env defs tree in
+          let partial_shapes =
+            gather_shapes ~final_env cmt_infos.cmt_impl_shape defs tree
+          in
           Some { defs; partial = partial_shapes; load_path }
       | None -> (* todo log error *) None)
   | _, _ -> (* todo log error *) None
