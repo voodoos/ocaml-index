@@ -102,36 +102,63 @@ let gather_shapes ~final_env defs tree =
                   Location.print_loc lid.loc)
           | _ -> ());
           Tast_iterator.default_iterator.typ sub me);
-      structure_item =
-        (fun sub ({ str_desc; _ } as si) ->
-          (match str_desc with
-          | Tstr_value (_, bindings) ->
-              List.iter
-                (fun vb ->
-                  try
-                    match vb.Typedtree.vb_pat.pat_desc with
-                    | Tpat_var (id, name) ->
-                        let lid = Longident.Lident name.txt in
-                        let path = Path.Pident id in
-                        let vd = Env.find_value path final_env in
-                        register_def vd.val_uid
-                          { Location.txt = lid; loc = name.loc }
-                    | _ -> ()
-                  with _ -> ())
-                bindings
-          | Tstr_type (_, decls) ->
-              List.iter
-                (fun (decl : Typedtree.type_declaration) ->
-                  let lid =
-                    {
-                      decl.typ_name with
-                      txt = Longident.Lident decl.typ_name.txt;
-                    }
-                  in
-                  register_def decl.typ_type.type_uid lid)
-                decls
-          | _ -> ());
-          Tast_iterator.default_iterator.structure_item sub si);
+      structure =
+        (* TODO: iterating on definitions/declarations should not be needed once
+           the `uid_to_loc` table contians the data we need *)
+        (fun sub { str_items; str_final_env; _ } ->
+          let env = rebuild_env str_final_env in
+          List.iter
+            (fun ({ Typedtree.str_desc; _ } as si) ->
+              (match str_desc with
+              | Tstr_value (_, bindings) ->
+                  List.iter
+                    (fun vb ->
+                      let pat_var_iter ~f pat =
+                        let rec aux pat =
+                          let open Typedtree in
+                          match pat.pat_desc with
+                          | Tpat_var (id, name) -> f id name
+                          | Tpat_alias (pat, _, _)
+                          | Tpat_variant (_, Some pat, _)
+                          | Tpat_lazy pat
+                          | Tpat_or (pat, _, _) ->
+                              aux pat
+                          | Tpat_tuple pats
+                          | Tpat_construct (_, _, pats, _)
+                          | Tpat_array pats ->
+                              List.iter aux pats
+                          | Tpat_record (pats, _) ->
+                              List.iter (fun (_, _, pat) -> aux pat) pats
+                          | _ -> ()
+                        in
+                        aux pat
+                      in
+                      pat_var_iter
+                        ~f:(fun id name ->
+                          let lid = Longident.Lident name.txt in
+                          let path = Path.Pident id in
+                          try
+                            let vd = Env.find_value path env in
+                            register_def vd.val_uid
+                              { Location.txt = lid; loc = name.loc }
+                          with Not_found -> ())
+                        vb.Typedtree.vb_pat)
+                    bindings
+              | Tstr_type (_, decls) ->
+                  List.iter
+                    (fun (decl : Typedtree.type_declaration) ->
+                      let lid =
+                        {
+                          decl.typ_name with
+                          txt = Longident.Lident decl.typ_name.txt;
+                        }
+                      in
+                      let uid = decl.typ_type.type_uid in
+                      register_def uid lid)
+                    decls
+              | _ -> ());
+              Tast_iterator.default_iterator.structure_item sub si)
+            str_items);
     }
   in
   (match tree with
