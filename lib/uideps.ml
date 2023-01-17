@@ -66,7 +66,7 @@ end)
 (* Storing locations of values whose definitions are not exposed by the current
    compilation unit is wasteful. As a first approximation we simply look if the
    defnition's shape is part of the public shapes stored in the CMT. *)
-let exposed ~public_shapes =
+let is_exposed ~public_shapes =
   let open Shape in
   (* We gather (once) the uids of all leaf in the public shapes *)
   let rec aux acc = function
@@ -81,14 +81,11 @@ let exposed ~public_shapes =
   | { desc = Leaf; uid = Some uid } -> Uid.Map.mem uid public_uids
   | _ -> true (* in doubt, store it *)
 
-let gather_shapes ~final_env:_ shapes defs tree =
+let gather_shapes ~is_exposed _defs tree =
   Log.debug "Gather SHAPES";
   (* Todo: handle error even if it should not happen *)
-  let public_shapes : Shape.t = Option.get shapes in
-  let exposed = exposed ~public_shapes in
   let shapes = ref [] in
   let iterator =
-    let register_def uid lid = add defs uid @@ LidSet.singleton lid in
     let register_loc ~env ~lid shape =
       let shape = Shape_local_reduce.weak_reduce env shape in
       let summary = Env.keep_only_summary env in
@@ -103,7 +100,7 @@ let gather_shapes ~final_env:_ shapes defs tree =
               try
                 let env = rebuild_env exp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Value env path in
-                if exposed shape then register_loc ~env ~lid shape
+                if is_exposed shape then register_loc ~env ~lid shape
               with Not_found ->
                 Log.warn "No shape for expr %a at %a" Path.print path
                   Location.print_loc lid.loc)
@@ -117,70 +114,12 @@ let gather_shapes ~final_env:_ shapes defs tree =
               try
                 let env = rebuild_env ctyp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Type env path in
-                if exposed shape then register_loc ~env ~lid shape
+                if is_exposed shape then register_loc ~env ~lid shape
               with Not_found ->
                 Log.warn "No shape for type %a at %a" Path.print path
                   Location.print_loc lid.loc)
           | _ -> ());
           Tast_iterator.default_iterator.typ sub me);
-      structure =
-        (* TODO: iterating on definitions/declarations should not be needed once
-           the `uid_to_loc` table contians the data we need *)
-        (fun sub { str_items; str_final_env; _ } ->
-          let env = rebuild_env str_final_env in
-          List.iter
-            (fun ({ Typedtree.str_desc; _ } as si) ->
-              (match str_desc with
-              | Tstr_value (_, bindings) ->
-                  List.iter
-                    (fun vb ->
-                      let pat_var_iter ~f pat =
-                        let rec aux pat =
-                          let open Typedtree in
-                          match pat.pat_desc with
-                          | Tpat_var (id, name) -> f id name
-                          | Tpat_alias (pat, _, _)
-                          | Tpat_variant (_, Some pat, _)
-                          | Tpat_lazy pat
-                          | Tpat_or (pat, _, _) ->
-                              aux pat
-                          | Tpat_tuple pats
-                          | Tpat_construct (_, _, pats, _)
-                          | Tpat_array pats ->
-                              List.iter aux pats
-                          | Tpat_record (pats, _) ->
-                              List.iter (fun (_, _, pat) -> aux pat) pats
-                          | _ -> ()
-                        in
-                        aux pat
-                      in
-                      pat_var_iter
-                        ~f:(fun id name ->
-                          let lid = Longident.Lident name.txt in
-                          let path = Path.Pident id in
-                          try
-                            let vd = Env.find_value path env in
-                            if exposed @@ Shape.leaf vd.val_uid then
-                              register_def vd.val_uid
-                                { Location.txt = lid; loc = name.loc }
-                          with Not_found -> ())
-                        vb.Typedtree.vb_pat)
-                    bindings
-              | Tstr_type (_, decls) ->
-                  List.iter
-                    (fun (decl : Typedtree.type_declaration) ->
-                      let lid =
-                        {
-                          decl.typ_name with
-                          txt = Longident.Lident decl.typ_name.txt;
-                        }
-                      in
-                      let uid = decl.typ_type.type_uid in
-                      if exposed @@ Shape.leaf uid then register_def uid lid)
-                    decls
-              | _ -> ());
-              Tast_iterator.default_iterator.structure_item sub si)
-            str_items);
     }
   in
   (match tree with
@@ -210,6 +149,36 @@ let from_tbl uid_to_loc =
     uid_to_loc;
   tbl
 
+let from_fragments ~is_exposed tbl fragments =
+  let of_option name =
+    match name.Location.txt with
+    | Some txt -> Some { name with txt }
+    | None -> None
+  in
+  let get_loc = function
+    | Cmt_format.Class_declaration cd -> Some cd.ci_id_name
+    | Class_description cd -> Some cd.ci_id_name
+    | Class_type_declaration ctd -> Some ctd.ci_id_name
+    | Extension_constructor ec -> Some ec.ext_name
+    | Module_binding mb -> of_option mb.mb_name
+    | Module_declaration md -> of_option md.md_name
+    | Tmodule_declaration (_, name) -> of_option name
+    | Module_type_declaration mtd -> Some mtd.mtd_name
+    | Type_declaration td -> Some td.typ_name
+    | Value_description vd -> Some vd.val_name
+    | Tvalue_description (_, name) -> of_option name
+  in
+  let to_located_lid (name : string Location.loc) =
+    { name with txt = Longident.Lident name.txt }
+  in
+  Shape.Uid.Tbl.iter
+    (fun uid fragment ->
+      if is_exposed @@ Shape.leaf uid then
+        match get_loc fragment |> Option.map to_located_lid with
+        | Some lid -> Hashtbl.add tbl uid @@ LidSet.singleton lid
+        | None -> ())
+    fragments
+
 let generate_one ~build_path input_file =
   Log.debug "Gather uids from %s\n%!" input_file;
   match Cmt_format.read input_file with
@@ -219,11 +188,12 @@ let generate_one ~build_path input_file =
       in
       Load_path.init load_path;
       match get_typedtree cmt_infos with
-      | Some (tree, final_env) ->
+      | Some (tree, _) ->
           let defs = Hashtbl.create 128 in
-          let partial_shapes =
-            gather_shapes ~final_env cmt_infos.cmt_impl_shape defs tree
-          in
+          let public_shapes : Shape.t = Option.get cmt_infos.cmt_impl_shape in
+          let is_exposed = is_exposed ~public_shapes in
+          from_fragments ~is_exposed defs cmt_infos.cmt_uid_to_loc;
+          let partial_shapes = gather_shapes ~is_exposed defs tree in
           Some { defs; partial = partial_shapes; load_path }
       | None -> (* todo log error *) None)
   | _, _ -> (* todo log error *) None
