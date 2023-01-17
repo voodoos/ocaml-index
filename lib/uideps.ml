@@ -5,6 +5,21 @@ type typedtree =
   | Interface of Typedtree.signature
   | Implementation of Typedtree.structure
 
+let add_root ~root (lid : Longident.t Location.loc) =
+  match root with
+  | None -> lid
+  | Some root ->
+      let pos_fname = Filename.concat root lid.loc.loc_start.pos_fname in
+      {
+        lid with
+        loc =
+          {
+            lid.loc with
+            loc_start = { lid.loc.loc_start with pos_fname };
+            loc_end = { lid.loc.loc_end with pos_fname };
+          };
+      }
+
 let add tbl uid locs =
   try
     let locations = Hashtbl.find tbl uid in
@@ -81,12 +96,13 @@ let is_exposed ~public_shapes =
   | { desc = Leaf; uid = Some uid } -> Uid.Map.mem uid public_uids
   | _ -> true (* in doubt, store it *)
 
-let gather_shapes ~is_exposed _defs tree =
+let gather_shapes ~root ~is_exposed _defs tree =
   Log.debug "Gather SHAPES";
   (* Todo: handle error even if it should not happen *)
   let shapes = ref [] in
   let iterator =
     let register_loc ~env ~lid shape =
+      let lid = add_root ~root lid in
       let shape = Shape_local_reduce.weak_reduce env shape in
       let summary = Env.keep_only_summary env in
       shapes := (lid, shape, summary) :: !shapes
@@ -149,7 +165,7 @@ let from_tbl uid_to_loc =
     uid_to_loc;
   tbl
 
-let from_fragments ~is_exposed tbl fragments =
+let from_fragments ~root ~is_exposed tbl fragments =
   let of_option name =
     match name.Location.txt with
     | Some txt -> Some { name with txt }
@@ -175,11 +191,13 @@ let from_fragments ~is_exposed tbl fragments =
     (fun uid fragment ->
       if is_exposed @@ Shape.leaf uid then
         match get_loc fragment |> Option.map to_located_lid with
-        | Some lid -> Hashtbl.add tbl uid @@ LidSet.singleton lid
+        | Some lid ->
+            let lid = add_root ~root lid in
+            Hashtbl.add tbl uid @@ LidSet.singleton lid
         | None -> ())
     fragments
 
-let generate_one ~build_path input_file =
+let generate_one ~root ~build_path input_file =
   Log.debug "Gather uids from %s\n%!" input_file;
   match Cmt_format.read input_file with
   | _, Some cmt_infos -> (
@@ -190,18 +208,18 @@ let generate_one ~build_path input_file =
       match get_typedtree cmt_infos with
       | Some (tree, _) ->
           let defs = Hashtbl.create 128 in
-          let public_shapes : Shape.t = Option.get cmt_infos.cmt_impl_shape in
+          let public_shapes = Option.get cmt_infos.cmt_impl_shape in
           let is_exposed = is_exposed ~public_shapes in
-          from_fragments ~is_exposed defs cmt_infos.cmt_uid_to_loc;
-          let partial_shapes = gather_shapes ~is_exposed defs tree in
+          from_fragments ~root ~is_exposed defs cmt_infos.cmt_uid_to_loc;
+          let partial_shapes = gather_shapes ~root ~is_exposed defs tree in
           Some { defs; partial = partial_shapes; load_path }
       | None -> (* todo log error *) None)
   | _, _ -> (* todo log error *) None
 
-let generate ~output_file ~build_path cmt =
+let generate ~root ~output_file ~build_path cmt =
   Log.debug "Writing %s\n%!" output_file;
   let payload =
-    match generate_one ~build_path cmt with
+    match generate_one ~root ~build_path cmt with
     | Some pl -> pl
     | None -> { defs = Hashtbl.create 0; partial = []; load_path = [] }
   in

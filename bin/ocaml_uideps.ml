@@ -28,6 +28,7 @@ let verbose = ref false
 let debug = ref false
 let input_files = ref []
 let output_file = ref "workspace.uideps"
+let root = ref "."
 
 let anon_fun =
   let first = ref true in
@@ -43,6 +44,7 @@ let speclist =
     ("--debug", Arg.Set debug, "Output debug information");
     ("-o", Arg.Set_string output_file, "Set output file name");
     ("--debug", Arg.Set debug, "Output debug information");
+    ("--root", Arg.Set_string root, "Root path");
   ]
 
 let () =
@@ -54,7 +56,8 @@ let () =
     | (Dump | Process), [] -> raise Too_few_files
     | Dump, _ :: _ :: _ -> raise Too_many_files
     | Process, file :: build_path ->
-        Uideps.generate ~output_file:!output_file ~build_path file
+        let root = if !root = "." then None else Some !root in
+        Uideps.generate ~root ~output_file:!output_file ~build_path file
     | Dump, [ file ] ->
         File_format.(read ~file |> pp_payload Format.std_formatter)
     | Aggregate, files -> Uideps.aggregate ~output_file:!output_file files
