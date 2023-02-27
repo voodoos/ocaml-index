@@ -96,6 +96,8 @@ let is_exposed ~public_shapes =
   | { desc = Leaf; uid = Some uid } -> Uid.Map.mem uid public_uids
   | _ -> true (* in doubt, store it *)
 
+(** [gather_shapes] iterates on the Typedtree and reduce the shape of every type
+    and value to add them to the index. *)
 let gather_shapes ~root ~is_exposed _defs tree =
   Log.debug "Gather SHAPES";
   (* Todo: handle error even if it should not happen *)
@@ -158,13 +160,8 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
       Log.debug "No typedtree\n%!";
       None
 
-let from_tbl uid_to_loc =
-  let tbl = Hashtbl.create 128 in
-  Shape.Uid.Tbl.iter
-    (fun uid loc -> Hashtbl.add tbl uid (LidSet.singleton loc))
-    uid_to_loc;
-  tbl
-
+(** Cmt files contains a table of declarations' Uids associated to a typedtree
+    fragment. [from_fragments] gather locations from these *)
 let from_fragments ~root ~is_exposed tbl fragments =
   let of_option name =
     match name.Location.txt with
