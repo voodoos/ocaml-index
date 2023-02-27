@@ -59,7 +59,7 @@ module Shape_full_reduce = Shape_reduce.Make_reduce (struct
         else (
           Log.error "Failed to load cmt(i): %s in load_path: [%s]" cmt
           @@ String.concat ":\n" (Load_path.get_paths ());
-          raise Not_found)
+          None)
 
   let read_unit_shape ~unit_name =
     Log.debug "Read unit shape: %s\n%!" unit_name;
@@ -216,13 +216,20 @@ let generate_one ~root ~build_path input_file =
       | None -> (* todo log error *) None)
   | _, _ -> (* todo log error *) None
 
+(** [generate ~root ~output_file ~build_path cmt] indexes the cmt [cmt] by
+      iterating on its [Typedtree] and reducing partially the shapes of every
+      value.
+    - In some cases (implicit transitive deps) the [build_path] contains in the
+      cmt file might be missing entries, these can be provided using the
+      [build_path] argument.
+    - If [root] is provided all location paths will be made absolute *)
 let generate ~root ~output_file ~build_path cmt =
-  Log.debug "Writing %s\n%!" output_file;
   let payload =
     match generate_one ~root ~build_path cmt with
     | Some pl -> pl
     | None -> { defs = Hashtbl.create 0; partial = []; load_path = [] }
   in
+  Log.debug "Writing to %s\n%!" output_file;
   File_format.write ~file:output_file payload
 
 let aggregate ~output_file =
