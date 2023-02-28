@@ -51,7 +51,9 @@ module Shape_full_reduce = Shape_reduce.Make_reduce (struct
     let cmt = String.concat "." [ unit_name; ext ] in
 
     match Cmt_format.read (Load_path.find_uncap cmt) with
-    | _, Some cmt_infos -> cmt_infos.cmt_impl_shape
+    | _, Some cmt_infos ->
+        Load_path.init cmt_infos.cmt_loadpath;
+        cmt_infos.cmt_impl_shape
     | _, None | (exception Not_found) ->
         if ext = "cmt" then (
           Log.debug "Failed to load cmt: %s, attempting cmti" cmt;
@@ -194,14 +196,11 @@ let from_fragments ~root ~is_exposed tbl fragments =
         | None -> ())
     fragments
 
-let generate_one ~root ~build_path input_file =
+let generate_one ~root ~build_path:_ input_file =
   Log.debug "Gather uids from %s\n%!" input_file;
   match Cmt_format.read input_file with
   | _, Some cmt_infos -> (
-      let load_path =
-        List.merge String.compare cmt_infos.cmt_loadpath build_path
-      in
-      Load_path.init load_path;
+      Load_path.init cmt_infos.cmt_loadpath;
       match get_typedtree cmt_infos with
       | Some (tree, _) ->
           let defs = Hashtbl.create 128 in
@@ -209,7 +208,12 @@ let generate_one ~root ~build_path input_file =
           let is_exposed = is_exposed ~public_shapes in
           from_fragments ~root ~is_exposed defs cmt_infos.cmt_uid_to_loc;
           let partial_shapes = gather_shapes ~root ~is_exposed defs tree in
-          Some { defs; partial = partial_shapes; load_path }
+          Some
+            {
+              defs;
+              partial = partial_shapes;
+              load_path = cmt_infos.cmt_loadpath;
+            }
       | None -> (* todo log error *) None)
   | _, _ -> (* todo log error *) None
 
@@ -234,12 +238,12 @@ let aggregate ~output_file =
   let merge_file file =
     let pl = File_format.read ~file in
     merge_tbl pl.defs ~into:tbl;
-    Load_path.init pl.load_path;
     List.iter
       (fun (loc, shape, env) ->
+        Load_path.init pl.load_path;
         match (Shape_full_reduce.weak_reduce env shape).uid with
         | Some uid -> add tbl uid @@ LidSet.singleton loc
-        | None -> ())
+        | None -> Log.warn "A shapes was not fully reduced while merging.")
       pl.partial
   in
   fun files ->
