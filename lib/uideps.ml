@@ -49,12 +49,15 @@ module Shape_full_reduce = Shape_reduce.Make_reduce (struct
 
   let rec try_load ~unit_name ?(ext = "cmt") () =
     let cmt = String.concat "." [ unit_name; ext ] in
-
-    match Cmt_format.read (Load_path.find_uncap cmt) with
-    | _, Some cmt_infos ->
-        Load_path.init cmt_infos.cmt_loadpath;
-        cmt_infos.cmt_impl_shape
-    | _, None | (exception Not_found) ->
+    match Load_path.find_uncap cmt with
+    | cmt_path -> (
+        match Cmt_format.read cmt_path with
+        | _, Some cmt_infos -> cmt_infos.cmt_impl_shape
+        | _, None ->
+            Log.error "Cannot read cmt file %s." cmt;
+            None)
+    | exception Not_found ->
+        (* todo: clarify cmt / cmti distinction *)
         if ext = "cmt" then (
           Log.debug "Failed to load cmt: %s, attempting cmti" cmt;
           try_load ~unit_name ~ext:"cmti" ())
@@ -196,11 +199,20 @@ let from_fragments ~root ~is_exposed tbl fragments =
         | None -> ())
     fragments
 
-let generate_one ~root ~build_path:_ input_file =
+let list_preppend_uniq l1 l2 =
+  let rec aux acc = function
+    | [] -> List.rev_append acc l1
+    | h :: tl when List.mem h l1 -> aux acc tl
+    | h :: tl -> aux (h :: acc) tl
+  in
+  aux [] l2
+
+let generate_one ~root ~build_path input_file =
   Log.debug "Gather uids from %s\n%!" input_file;
   match Cmt_format.read input_file with
   | _, Some cmt_infos -> (
-      Load_path.init cmt_infos.cmt_loadpath;
+      let load_path = list_preppend_uniq build_path cmt_infos.cmt_loadpath in
+      Load_path.init load_path;
       match get_typedtree cmt_infos with
       | Some (tree, _) ->
           let defs = Hashtbl.create 128 in
@@ -208,21 +220,14 @@ let generate_one ~root ~build_path:_ input_file =
           let is_exposed = is_exposed ~public_shapes in
           from_fragments ~root ~is_exposed defs cmt_infos.cmt_uid_to_loc;
           let partial_shapes = gather_shapes ~root ~is_exposed defs tree in
-          Some
-            {
-              defs;
-              partial = partial_shapes;
-              load_path = cmt_infos.cmt_loadpath;
-            }
+          Some { defs; partial = partial_shapes; load_path }
       | None -> (* todo log error *) None)
   | _, _ -> (* todo log error *) None
 
 (** [generate ~root ~output_file ~build_path cmt] indexes the cmt [cmt] by
       iterating on its [Typedtree] and reducing partially the shapes of every
       value.
-    - In some cases (implicit transitive deps) the [build_path] contains in the
-      cmt file might be missing entries, these can be provided using the
-      [build_path] argument.
+    - In most cases (implicit transitive deps, externally installed libs) the [build_path] should contain the transitive closure of all dependencies of the unit
     - If [root] is provided all location paths will be made absolute *)
 let generate ~root ~output_file ~build_path cmt =
   let payload =
@@ -237,13 +242,15 @@ let aggregate ~output_file =
   let tbl = Hashtbl.create 256 in
   let merge_file file =
     let pl = File_format.read ~file in
+    Load_path.init pl.load_path;
     merge_tbl pl.defs ~into:tbl;
     List.iter
       (fun (loc, shape, env) ->
-        Load_path.init pl.load_path;
-        match (Shape_full_reduce.weak_reduce env shape).uid with
-        | Some uid -> add tbl uid @@ LidSet.singleton loc
-        | None -> Log.warn "A shapes was not fully reduced while merging.")
+        match Shape_full_reduce.weak_reduce env shape with
+        | { uid = Some uid; _ } -> add tbl uid @@ LidSet.singleton loc
+        | { uid = None; _ } as _s ->
+            (* Log.warn "File %S: Shape %a was not fully reduced: %a" file Shape.print shape Shape.print s; *)
+            ())
       pl.partial
   in
   fun files ->

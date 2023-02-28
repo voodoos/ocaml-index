@@ -38,7 +38,11 @@ let pp_payload (fmt : Format.formatter) pl =
         (LidSet.elements locs))
     pl.defs;
   Format.fprintf fmt "@]}@,";
-  Format.fprintf fmt "And %i partial shapes." (List.length pl.partial)
+  Format.fprintf fmt "And %i partial shapes.\n" (List.length pl.partial);
+  Format.(
+    fprintf fmt "With load_path: [%a]"
+      (pp_print_list ~pp_sep:pp_force_newline pp_print_string)
+      pl.load_path)
 
 let pp (fmt : Format.formatter) ff =
   match ff with V1 tbl -> Format.fprintf fmt "V1@,%a" pp_payload tbl
