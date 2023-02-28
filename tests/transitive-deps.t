@@ -34,11 +34,7 @@
   $ ocaml-uideps process-cmt -o lib1/foo.uideps lib1/foo.cmt
   $ ocaml-uideps process-cmt -o lib2/bar.uideps lib2/bar.cmt
 
-FIXME: There must be an issue with the load path
   $ ocaml-uideps aggregate -o test.uideps main.uideps lib1/foo.uideps lib2/bar.uideps
-  [error] Failed to load cmt(i): Bar.cmti in load_path: [:
-  lib1:
-  /Users/ulysse/tmp/occurrences/_opam/lib/ocaml]
 
   $ ocaml-uideps dump main.uideps
   {uid: Main.0; locs: "x": File "main.ml", line 1, characters 4-5 }
@@ -50,6 +46,9 @@ FIXME: There must be an issue with the load path
 
   $ ocaml-uideps dump test.uideps
   {uid: Main.0; locs: "x": File "main.ml", line 1, characters 4-5
-   uid: Bar.0; locs: "x": File "lib2/bar.ml", line 1, characters 4-5 }
+   uid: Bar.0; locs:
+     "x": File "lib2/bar.ml", line 1, characters 4-5;
+     "Foo.x": File "main.ml", line 1, characters 8-13
+   }
   And 0 partial shapes.
 
