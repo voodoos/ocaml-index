@@ -1,4 +1,4 @@
-open Ocaml_uideps_lib
+open Lib
 
 type command = Process | Aggregate | Dump | Usage
 

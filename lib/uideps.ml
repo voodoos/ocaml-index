@@ -142,7 +142,7 @@ let gather_shapes ~root ~unreduced ~partial_shapes:_ tree =
       expr =
         (fun sub ({ exp_desc; exp_env; _ } as e) ->
           (match exp_desc with
-          | Texp_ident (path, lid, _, _) -> (
+          | Texp_ident (path, lid, _) -> (
               try
                 let env = rebuild_env exp_env in
                 let shape = Env.shape_of_path ~namespace:Kind.Value env path in
@@ -190,7 +190,7 @@ let get_typedtree (cmt_infos : Cmt_format.cmt_infos) =
 let () =
   let old_load = !Persistent_env.Persistent_signature.load in
   Persistent_env.Persistent_signature.load := (fun ~unit_name ->
-    Log.debug "Loading CU %a\n" Compilation_unit.Name.print unit_name;
+    Log.debug "Loading CU %s\n"  unit_name;
     old_load ~unit_name)
 
 (* This is only a dummy for now *)
@@ -212,7 +212,6 @@ let generate_one ~root ~build_path:_ cmt_path =
            (Implementation {structure with str_final_env})
        in
        let cu_shapes = Hashtbl.create 1 in
-       let cmt_modname = Compilation_unit.name_as_string cmt_modname in
        Hashtbl.add cu_shapes cmt_modname public_shapes;
        Some (partial_shapes, !unreduced, cu_shapes, cmt_loadpath)
      with Envaux.Error err ->
