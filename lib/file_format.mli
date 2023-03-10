@@ -2,8 +2,10 @@ module LidSet : Set.S with type elt = Longident.t Location.loc
 
 type payload = {
   defs : (Shape.Uid.t, LidSet.t) Hashtbl.t;
-  partial : (Longident.t Location.loc * Shape.t * Env.t) list;
+  partials : (Shape.t, LidSet.t) Hashtbl.t;
+  unreduced : (Shape.t * Env.t * Longident.t Location.loc) list;
   load_path : string list;
+  cu_shape : (string,  Shape.t) Hashtbl.t;
 }
 
 type file_format = V1 of payload

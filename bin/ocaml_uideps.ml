@@ -1,4 +1,4 @@
-open Lib
+open Ocaml_uideps_lib
 
 type command = Process | Aggregate | Dump | Usage
 
@@ -29,6 +29,7 @@ let debug = ref false
 let input_files = ref []
 let output_file = ref "workspace.uideps"
 let root = ref "."
+let store_shapes = ref false
 
 let anon_fun =
   let first = ref true in
@@ -45,12 +46,15 @@ let speclist =
     ("-o", Arg.Set_string output_file, "Set output file name");
     ("--debug", Arg.Set debug, "Output debug information");
     ("--root", Arg.Set_string root, "Root path");
+    ("--store-shapes", Arg.Set store_shapes, "Aggregate input-indexes shapes and store them\
+                                            along with the index");
   ]
 
 let () =
   try
     Arg.parse speclist anon_fun usage_msg;
-    if !verbose then Log.set_log_level Warning;
+    Log.set_log_level Warning;
+    if !verbose then Log.set_log_level Debug;
     if !debug then Log.set_log_level Debug;
     match (!command, List.rev !input_files) with
     | (Dump | Process), [] -> raise Too_few_files
@@ -60,7 +64,8 @@ let () =
         Uideps.generate ~root ~output_file:!output_file ~build_path file
     | Dump, [ file ] ->
         File_format.(read ~file |> pp_payload Format.std_formatter)
-    | Aggregate, files -> Uideps.aggregate ~output_file:!output_file files
+    | Aggregate, files ->
+        Uideps.aggregate ~store_shapes:!store_shapes ~output_file:!output_file files
     | Usage, _ -> Format.print_string usage_msg
   with
   | Unknown_command cmd ->

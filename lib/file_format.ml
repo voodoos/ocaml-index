@@ -17,14 +17,45 @@ module LidSet = Set.Make (Lid)
 
 type payload = {
   defs : (Shape.Uid.t, LidSet.t) Hashtbl.t;
-  partial : (Longident.t Location.loc * Shape.t * Env.t) list;
+  partials : (Shape.t, LidSet.t) Hashtbl.t;
+  unreduced : (Shape.t * Env.t * Longident.t Location.loc) list;
   load_path : string list;
+  cu_shape : (string,  Shape.t) Hashtbl.t;
 }
 
 type file_format = V1 of payload
 
-let pp_payload (fmt : Format.formatter) pl =
+let pp_partials (fmt : Format.formatter) (partials : (Shape.t, LidSet.t) Hashtbl.t) =
   Format.fprintf fmt "{@[";
+  Hashtbl.iter
+    (fun shape locs ->
+       Format.fprintf fmt "@[<hov 2>shape: %a; locs:@ @[<v>%a@]@]@;"
+         Shape.print shape
+         (Format.pp_print_list
+            ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@;")
+            (fun fmt { Location.txt; loc } ->
+               Format.fprintf fmt "%S: %a"
+                 (try Longident.flatten txt |> String.concat "." with _ -> "<?>")
+                 Location.print_loc loc))
+         (LidSet.elements locs))
+    partials;
+  Format.fprintf fmt "@]}"
+
+let pp_unreduced
+      (fmt : Format.formatter)
+      (unreduced : (Shape.t * Env.t * Longident.t Location.loc) list) =
+  Format.fprintf fmt "{@[";
+  List.iter
+    (fun (shape, _env, { Location.txt; loc }) ->
+       Format.fprintf fmt "@[<hov 2>shape: %a; locs:@ @[<v>%s: %a@]@]@;"
+         Shape.print shape
+         (try Longident.flatten txt |> String.concat "."  with _ -> "<?>")
+         Location.print_loc loc)
+    unreduced;
+  Format.fprintf fmt "@]}"
+
+let pp_payload (fmt : Format.formatter) pl =
+  Format.fprintf fmt "%i uids:@ {@[" (Hashtbl.length pl.defs);
   Hashtbl.iter
     (fun uid locs ->
       Format.fprintf fmt "@[<hov 2>uid: %a; locs:@ @[<v>%a@]@]@;"
@@ -33,16 +64,18 @@ let pp_payload (fmt : Format.formatter) pl =
            ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@;")
            (fun fmt { Location.txt; loc } ->
              Format.fprintf fmt "%S: %a"
-               (Longident.flatten txt |> String.concat ".")
+               (try Longident.flatten txt |> String.concat "."  with _ -> "<?>")
                Location.print_loc loc))
         (LidSet.elements locs))
     pl.defs;
-  Format.fprintf fmt "@]}@,";
-  Format.fprintf fmt "And %i partial shapes.\n" (List.length pl.partial);
-  Format.(
-    fprintf fmt "With load_path: [%a]"
-      (pp_print_list ~pp_sep:pp_force_newline pp_print_string)
-      pl.load_path)
+  Format.fprintf fmt "@]},@ ";
+  Format.fprintf fmt "%i partial shapes:@ @[%a@],@ " (Hashtbl.length pl.partials)
+    pp_partials pl.partials;
+  Format.fprintf fmt "%i unreduced shapes:@ @[%a@]@ " (List.length pl.unreduced)
+    pp_unreduced pl.unreduced;
+  Format.fprintf fmt "and shapes for CUS %s.@ "
+    (String.concat ";@," (Hashtbl.to_seq_keys pl.cu_shape |> List.of_seq))
+
 
 let pp (fmt : Format.formatter) ff =
   match ff with V1 tbl -> Format.fprintf fmt "V1@,%a" pp_payload tbl
