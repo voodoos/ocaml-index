@@ -5,7 +5,7 @@ type payload = {
   partials : (Shape.t, LidSet.t) Hashtbl.t;
   unreduced : (Shape.t * Env.t * Longident.t Location.loc) list;
   load_path : string list;
-  cu_shape : (string,  Shape.t) Hashtbl.t;
+  cu_shape : (string, Shape.t) Hashtbl.t;
 }
 
 type file_format = V1 of payload
