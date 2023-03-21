@@ -1,4 +1,4 @@
 (executable
  (name ocaml_uideps)
  (public_name ocaml-uideps)
- (libraries lib))
+ (libraries cmdliner lib))
