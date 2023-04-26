@@ -169,7 +169,7 @@ let from_fragments ~root tbl fragments =
     fragments
 
 (* This is only a dummy for now *)
-let generate_one ~root ~build_path:_ cmt_path =
+let generate_one ~root ~build_path cmt_path =
   match Cmt_format.read_cmt cmt_path with
   | {
    cmt_loadpath;
@@ -190,7 +190,7 @@ let generate_one ~root ~build_path:_ cmt_path =
     in
     let cu_shapes = Hashtbl.create 1 in
     Hashtbl.add cu_shapes cmt_modname public_shapes;
-    Some (defs, unreduced, cu_shapes, cmt_loadpath)
+    Some (defs, unreduced, cu_shapes, List.concat [cmt_loadpath; build_path])
   | exception Cmi_format.Error err ->
       Log.error "Failed to load cmt: %a\n%!" Cmi_format.report_error err;
       raise @@ Cmi_format.Error err

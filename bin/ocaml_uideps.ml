@@ -61,7 +61,7 @@ module Aggregate = struct
     let doc =
       "aggregate input-indexes shapes and store them in the new index"
     in
-    Arg.(value & flag & info [ "store_shapes" ] ~doc)
+    Arg.(value & flag & info [ "store-shapes" ] ~doc)
 
   let indexes =
     let doc = "the indexes to aggregate" in
