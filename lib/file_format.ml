@@ -18,7 +18,7 @@ module LidSet = Set.Make (Lid)
 type payload = {
   defs : (Shape.Uid.t, LidSet.t) Hashtbl.t;
   partials : (Shape.t, LidSet.t) Hashtbl.t;
-  unreduced : (Shape.t * Env.t * Longident.t Location.loc) list;
+  unreduced : (Shape.t * Longident.t Location.loc) list;
   load_path : string list;
   cu_shape : (string, Shape.t) Hashtbl.t;
 }
@@ -43,10 +43,10 @@ let pp_partials (fmt : Format.formatter)
   Format.fprintf fmt "@]}"
 
 let pp_unreduced (fmt : Format.formatter)
-    (unreduced : (Shape.t * Env.t * Longident.t Location.loc) list) =
+    (unreduced : (Shape.t * Longident.t Location.loc) list) =
   Format.fprintf fmt "{@[";
   List.iter
-    (fun (shape, _env, { Location.txt; loc }) ->
+    (fun (shape, { Location.txt; loc }) ->
       Format.fprintf fmt "@[<hov 2>shape: %a; locs:@ @[<v>%s: %a@]@]@;"
         Shape.print shape
         (try Longident.flatten txt |> String.concat "." with _ -> "<?>")
