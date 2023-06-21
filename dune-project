@@ -10,4 +10,6 @@
  (name ocaml-uideps)
  (synopsis "A tool that indexes value usages in a cmt file.")
  (description "ocaml-uideps should integrate with the build system to index a \
-  codebase."))
+  codebase.")
+ (depends
+  (cmdliner (>= "1.1.0"))))
