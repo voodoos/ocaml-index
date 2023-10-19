@@ -15,6 +15,7 @@ end) = struct
     | NApp of nf * nf
     | NAbs of local_env * var * t * delayed_nf
     | NStruct of delayed_nf Item.Map.t
+    | NAlias of nf
     | NProj of nf * Item.t
     | NLeaf
     | NComp_unit of string
@@ -124,6 +125,9 @@ end) = struct
           | Some t -> reduce env t
           | None -> return (NComp_unit unit_name)
           end
+      | App({ desc = Alias str; _ }, arg) | App(str, { desc = Alias arg; _ }) ->
+          (* Aliases are ignored when reducing applications *)
+          reduce env { t with desc = App(str, arg) }
       | App(f, arg) ->
           let f = reduce env f in
           begin match f.desc with
@@ -136,6 +140,9 @@ end) = struct
               let arg = reduce env arg in
               return (NApp(f, arg))
           end
+      | Proj({ desc = Alias str; _ }, item) ->
+          (* Aliases are ignored when reducing projections *)
+          reduce env { t with desc = Proj(str, item) }
       | Proj(str, item) ->
           let str = reduce env str in
           let nored () = return (NProj(str, item)) in
@@ -178,6 +185,7 @@ end) = struct
       | Struct m ->
           let mnf = Item.Map.map (delay_reduce env) m in
           return (NStruct mnf)
+      | Alias t -> return (NAlias (reduce env t))
 
   let rec read_back env (nf : nf) : t =
     in_memo_table env.read_back_memo_table nf (read_back_ env) nf
@@ -202,6 +210,7 @@ end) = struct
         Abs(x, read_back_force nf)
     | NStruct nstr ->
         Struct (Item.Map.map read_back_force nstr)
+    | NAlias nf -> Alias (read_back nf)
     | NProj (nf, item) ->
         Proj (read_back nf, item)
     | NLeaf -> Leaf
@@ -229,6 +238,7 @@ end) = struct
           Abs(x, weak_read_back_no_force nf)
       | NStruct nstr ->
           Struct (Item.Map.map weak_read_back_no_force nstr)
+    | NAlias nf -> Alias (read_back env nf)
       | NProj (nf, item) ->
           Proj (read_back env nf, item)
       | NLeaf -> Leaf
