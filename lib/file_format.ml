@@ -19,7 +19,7 @@ module LidSet = Set.Make (Lid)
 
 type index = {
   defs : (Shape.Uid.t, LidSet.t) Hashtbl.t;
-  approximated : (Shape.t, LidSet.t) Hashtbl.t;
+  approximated : (Shape.Uid.t, LidSet.t) Hashtbl.t;
   unresolved : (Longident.t Location.loc * Shape.t) list;
   load_path : string list;
   cu_shape : (string, Shape.t) Hashtbl.t;
@@ -28,12 +28,12 @@ type index = {
 type file_format = V1 of index
 
 let pp_partials (fmt : Format.formatter)
-    (partials : (Shape.t, LidSet.t) Hashtbl.t) =
+    (partials : (Shape.Uid.t, LidSet.t) Hashtbl.t) =
   Format.fprintf fmt "{@[";
   Hashtbl.iter
-    (fun shape locs ->
-      Format.fprintf fmt "@[<hov 2>shape: %a; locs:@ @[<v>%a@]@]@;" Shape.print
-        shape
+    (fun uid locs ->
+      Format.fprintf fmt "@[<hov 2>uid: %a; locs:@ @[<v>%a@]@]@;" Shape.Uid.print
+        uid
         (Format.pp_print_list
            ~pp_sep:(fun fmt () -> Format.fprintf fmt ";@;")
            (fun fmt { Location.txt; loc } ->

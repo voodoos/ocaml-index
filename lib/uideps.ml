@@ -138,7 +138,7 @@ let add_locs_from_fragments ~root tbl fragments =
   in
   Shape.Uid.Tbl.iter add_loc fragments
 
-let generate_one ~root ~build_path cmt_path =
+let index_of_cmt ~root ~build_path cmt_path =
   match Cmt_format.read_cmt cmt_path with
   | {
    cmt_loadpath;
@@ -184,11 +184,20 @@ let generate_one ~root ~build_path cmt_path =
     - If [root] is provided all location paths will be made absolute *)
 let generate ~root ~output_file ~build_path cmt =
   Log.debug "Generating index for cmt %S\n%!" cmt;
-  generate_one ~root ~build_path cmt
+  index_of_cmt ~root ~build_path cmt
   |> Option.iter (fun index ->
          Log.debug "Writing to %s\n%!" output_file;
          File_format.write ~file:output_file index)
 
+let from_files ~store_shapes:_ ~output_file:_ files =
+  List.iter (fun file ->
+      let in_channel = open_in file in
+      let magic_number = Cmt_format.read_magic_number in_channel in
+      close_in in_channel;
+      Format.printf "MN: %s\n%!" magic_number
+    ) files
+
+(*
 let aggregate ~store_shapes ~output_file =
   let defs = Hashtbl.create 256 in
   let partials = Hashtbl.create 64 in
@@ -213,4 +222,4 @@ let aggregate ~store_shapes ~output_file =
     let cu_shape = Hashtbl.create (List.length files) in
     List.iter (merge_file ~cu_shape) files;
     File_format.write ~file:output_file
-      { defs; partials; unreduced = []; load_path = []; cu_shape }
+      { defs; partials; unreduced = []; load_path = []; cu_shape } *)

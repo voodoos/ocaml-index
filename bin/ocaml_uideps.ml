@@ -55,7 +55,7 @@ end
 
 module Aggregate = struct
   let aggregate output_file store_shapes files =
-    Uideps.aggregate ~store_shapes ~output_file files
+    Uideps.from_files ~store_shapes ~output_file files
 
   let store_shapes =
     let doc =
