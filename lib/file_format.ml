@@ -1,3 +1,5 @@
+open Import
+
 module Lid : Set.OrderedType with type t = Longident.t Location.loc = struct
   type t = Longident.t Location.loc
 
@@ -15,15 +17,15 @@ end
 
 module LidSet = Set.Make (Lid)
 
-type payload = {
+type index = {
   defs : (Shape.Uid.t, LidSet.t) Hashtbl.t;
-  partials : (Shape.t, LidSet.t) Hashtbl.t;
-  unreduced : (Shape.t * Longident.t Location.loc) list;
+  approximated : (Shape.t, LidSet.t) Hashtbl.t;
+  unresolved : (Longident.t Location.loc * Shape.t) list;
   load_path : string list;
   cu_shape : (string, Shape.t) Hashtbl.t;
 }
 
-type file_format = V1 of payload
+type file_format = V1 of index
 
 let pp_partials (fmt : Format.formatter)
     (partials : (Shape.t, LidSet.t) Hashtbl.t) =
@@ -42,16 +44,16 @@ let pp_partials (fmt : Format.formatter)
     partials;
   Format.fprintf fmt "@]}"
 
-let pp_unreduced (fmt : Format.formatter)
-    (unreduced : (Shape.t * Longident.t Location.loc) list) =
+let pp_unresolved (fmt : Format.formatter)
+    (unresolved : (Longident.t Location.loc * Shape.t) list) =
   Format.fprintf fmt "{@[";
   List.iter
-    (fun (shape, { Location.txt; loc }) ->
+    (fun ({ Location.txt; loc }, shape) ->
       Format.fprintf fmt "@[<hov 2>shape: %a; locs:@ @[<v>%s: %a@]@]@;"
         Shape.print shape
         (try Longident.flatten txt |> String.concat "." with _ -> "<?>")
         Location.print_loc loc)
-    unreduced;
+    unresolved;
   Format.fprintf fmt "@]}"
 
 let pp_payload (fmt : Format.formatter) pl =
@@ -69,11 +71,12 @@ let pp_payload (fmt : Format.formatter) pl =
         (LidSet.elements locs))
     pl.defs;
   Format.fprintf fmt "@]},@ ";
-  Format.fprintf fmt "%i partial shapes:@ @[%a@],@ "
-    (Hashtbl.length pl.partials)
-    pp_partials pl.partials;
-  Format.fprintf fmt "%i unreduced shapes:@ @[%a@]@ " (List.length pl.unreduced)
-    pp_unreduced pl.unreduced;
+  Format.fprintf fmt "%i approx shapes:@ @[%a@],@ "
+    (Hashtbl.length pl.approximated)
+    pp_partials pl.approximated;
+  Format.fprintf fmt "%i unreduced shapes:@ @[%a@]@ "
+    (List.length pl.unresolved)
+    pp_unresolved pl.unresolved;
   Format.fprintf fmt "and shapes for CUS %s.@ "
     (String.concat ";@," (Hashtbl.to_seq_keys pl.cu_shape |> List.of_seq))
 

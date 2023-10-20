@@ -1,3 +1,6 @@
 (library
  (name lib)
- (libraries compiler-libs.common))
+ (libraries
+  merlin-lib.ocaml_typing
+  merlin-lib.ocaml_parsing
+  merlin-lib.analysis))
