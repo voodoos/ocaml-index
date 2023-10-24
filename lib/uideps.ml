@@ -37,6 +37,7 @@ module Reduce_common = struct
   let fuel = 10
 
   let find_shape env id =
+    (* Todo: Test when applying functor arg which is in another CU *)
     Env.shape_of_path ~namespace:Shape.Sig_component_kind.Module env (Pident id)
 end
 
@@ -48,13 +49,13 @@ module Shape_full_reduce = Shape.Make_reduce (struct
   let load_index comp_unit filename =
     Log.debug "Looking for shapes in %S\n" filename;
     match File_format.read ~file:(Load_path.find_uncap filename) with
-    | { cu_shape; _ } ->
+    | Index { cu_shape; _ } ->
         Log.debug "Succesfully loaded %S\nIt contains shapes for %s\n\n%!"
           filename
           (String.concat "; " (Hashtbl.to_seq_keys cu_shape |> List.of_seq));
         Hashtbl.add index_shapes comp_unit cu_shape;
         Hashtbl.find_opt cu_shape comp_unit
-    | exception Not_found ->
+    | Cmt _ | Unknown | (exception Not_found) ->
         Log.debug "Failed to load file %S in load_path: @[%s@]\n%!" filename
         @@ String.concat "; " (Load_path.get_paths ());
         None
@@ -138,42 +139,40 @@ let add_locs_from_fragments ~root tbl fragments =
   in
   Shape.Uid.Tbl.iter add_loc fragments
 
-let index_of_cmt ~root ~build_path cmt_path =
-  match Cmt_format.read_cmt cmt_path with
-  | {
-   cmt_loadpath;
-   cmt_impl_shape;
-   cmt_modname;
-   cmt_uid_to_decl;
-   cmt_ident_occurrences;
-   _;
-  } ->
-      let public_shapes = Option.get cmt_impl_shape in
-      let defs = Hashtbl.create 64 in
-      add_locs_from_fragments ~root defs cmt_uid_to_decl;
-      let approximated = Hashtbl.create 64 in
-      let unresolved =
-        List.filter_map
-          (fun (lid, (item : Shape.reduction_result)) ->
-            match item with
-            | Resolved uid ->
-                add defs uid (LidSet.singleton lid);
-                None
-            | Unresolved shape -> Some (lid, shape)
-            | Approximated (Some uid) ->
-                add approximated uid (LidSet.singleton lid);
-                None
-            | _ -> None)
-          cmt_ident_occurrences
-      in
-      let cu_shape = Hashtbl.create 1 in
-      Hashtbl.add cu_shape cmt_modname public_shapes;
-      let load_path = List.concat [ cmt_loadpath; build_path ] in
-      Some { defs; approximated; unresolved; load_path; cu_shape }
-  | exception Ocaml_typing.Magic_numbers.Cmi.Error err ->
-      Log.error "Failed to load cmt: %a\n%!"
-        Ocaml_typing.Magic_numbers.Cmi.report_error err;
-      raise @@ Ocaml_typing.Magic_numbers.Cmi.Error err
+let index_of_cmt ~root ~build_path cmt_infos =
+  let {
+    Cmt_format.cmt_loadpath;
+    cmt_impl_shape;
+    cmt_modname;
+    cmt_uid_to_decl;
+    cmt_ident_occurrences;
+    _;
+  } =
+    cmt_infos
+  in
+  Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ()) (fun () ->
+  Load_path.(init cmt_loadpath);
+  let public_shapes = Option.get cmt_impl_shape in
+  let defs = Hashtbl.create 64 in
+  add_locs_from_fragments ~root defs cmt_uid_to_decl;
+  let approximated = Hashtbl.create 64 in
+  List.iter
+    (fun (lid, (item : Shape.reduction_result)) ->
+      match item with
+      | Resolved uid -> add defs uid (LidSet.singleton lid)
+      | Unresolved shape -> (
+          match Shape_full_reduce.reduce_for_uid Env.empty shape with
+          | Resolved uid -> add defs uid (LidSet.singleton lid)
+          | Approximated (Some uid) ->
+              add approximated uid (LidSet.singleton lid)
+          | _ -> ())
+      | Approximated (Some uid) -> add approximated uid (LidSet.singleton lid)
+      | _ -> ())
+    cmt_ident_occurrences;
+  let cu_shape = Hashtbl.create 1 in
+  Hashtbl.add cu_shape cmt_modname public_shapes;
+  let load_path = List.concat [ cmt_loadpath; build_path ] in
+   { defs; approximated; load_path; cu_shape })
 
 (** [generate ~root ~output_file ~build_path cmt] indexes the cmt [cmt] by
       iterating on its [Typedtree] and reducing partially the shapes of every
@@ -182,20 +181,41 @@ let index_of_cmt ~root ~build_path cmt_path =
       cmt file might be missing entries, these can be provided using the
       [build_path] argument.
     - If [root] is provided all location paths will be made absolute *)
-let generate ~root ~output_file ~build_path cmt =
+(* let generate ~root ~output_file ~build_path cmt =
   Log.debug "Generating index for cmt %S\n%!" cmt;
   index_of_cmt ~root ~build_path cmt
   |> Option.iter (fun index ->
          Log.debug "Writing to %s\n%!" output_file;
-         File_format.write ~file:output_file index)
+         File_format.write ~file:output_file index) *)
 
-let from_files ~store_shapes:_ ~output_file:_ files =
-  List.iter (fun file ->
-      let in_channel = open_in file in
-      let magic_number = Cmt_format.read_magic_number in_channel in
-      close_in in_channel;
-      Format.printf "MN: %s\n%!" magic_number
-    ) files
+let merge_index ~store_shapes ~into index =
+  merge_tbl index.defs ~into:into.defs;
+  merge_tbl index.approximated ~into:into.approximated;
+
+  if store_shapes then Hashtbl.add_seq index.cu_shape
+    (Hashtbl.to_seq into.cu_shape)
+
+
+let from_files ~store_shapes ~output_file ~root ~build_path files =
+  let final_index =
+    {
+      defs = Hashtbl.create 256;
+      approximated = Hashtbl.create 0;
+      load_path = [];
+      cu_shape = Hashtbl.create 64;
+    }
+  in
+  List.iter
+    (fun file ->
+      let index =
+        match File_format.read ~file with
+        | Cmt cmt_infos -> index_of_cmt ~root ~build_path cmt_infos
+        | Index index -> index
+        | Unknown -> failwith "unknown file type"
+      in
+      merge_index ~store_shapes index ~into:final_index)
+    files;
+  File_format.write ~file:output_file final_index
 
 (*
 let aggregate ~store_shapes ~output_file =

@@ -7,7 +7,6 @@ module LidSet : Set.S with type elt = Longident.t Location.loc
 type index = {
   defs : (Shape.Uid.t, LidSet.t) Hashtbl.t;
   approximated : (Shape.Uid.t, LidSet.t) Hashtbl.t;
-  unresolved : (Longident.t Location.loc * Shape.t) list;
   load_path : string list;
   cu_shape : (string, Shape.t) Hashtbl.t;
 }

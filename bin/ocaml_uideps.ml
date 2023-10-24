@@ -27,8 +27,8 @@ module Common = struct
 end
 
 module Index = struct
-  let generate root output_file build_path file =
-    Uideps.generate ~root ~output_file ~build_path file
+  let from_files store_shapes root output_file build_path file =
+    Uideps.from_files ~store_shapes ~root ~output_file ~build_path file
 
   let root =
     let doc = "if provided all locations will be appended to that path" in
@@ -38,12 +38,24 @@ module Index = struct
     let doc = "the $(i, .cmt) file to be indexed" in
     Arg.(required & pos 0 (some string) None & info [] ~doc)
 
+  let files =
+    let doc = "the files to index" in
+    Arg.(non_empty & pos_all string [] & info [] ~doc)
+
   let build_path =
     let doc = "the extra build path" in
     Arg.(value & pos_right 0 string [] & info [] ~doc)
 
+  let store_shapes =
+    let doc =
+      "aggregate input-indexes shapes and store them in the new index"
+    in
+    Arg.(value & flag & info [ "store-shapes" ] ~doc)
+
   let term =
-    Term.(const generate $ root $ Common.output_file $ build_path $ cmt_file)
+    Term.(
+      const from_files $ store_shapes $ root $ Common.output_file $ build_path
+      $ files)
 
   let cmd =
     let info =
@@ -100,6 +112,6 @@ let subcommands =
     let doc = "An indexer for OCaml's artifacts" in
     Cmd.info "ocaml-uideps" ~doc
   in
-  Cmd.group info [ Index.cmd; Aggregate.cmd; Dump.cmd ]
+  Cmd.group info [ Index.cmd; Dump.cmd ]
 
 let () = exit (Cmd.eval subcommands)

@@ -22,7 +22,6 @@ module LidSet = Set.Make (Lid)
 type index = {
   defs : (Shape.Uid.t, LidSet.t) Hashtbl.t;
   approximated : (Shape.Uid.t, LidSet.t) Hashtbl.t;
-  unresolved : (Longident.t Location.loc * Shape.t) list;
   load_path : string list;
   cu_shape : (string, Shape.t) Hashtbl.t;
 }
@@ -44,18 +43,6 @@ let pp_partials (fmt : Format.formatter)
     partials;
   Format.fprintf fmt "@]}"
 
-let pp_unresolved (fmt : Format.formatter)
-    (unresolved : (Longident.t Location.loc * Shape.t) list) =
-  Format.fprintf fmt "{@[";
-  List.iter
-    (fun ({ Location.txt; loc }, shape) ->
-      Format.fprintf fmt "@[<hov 2>shape: %a; locs:@ @[<v>%s: %a@]@]@;"
-        Shape.print shape
-        (try Longident.flatten txt |> String.concat "." with _ -> "<?>")
-        Location.print_loc loc)
-    unresolved;
-  Format.fprintf fmt "@]}"
-
 let pp (fmt : Format.formatter) pl =
   Format.fprintf fmt "%i uids:@ {@[" (Hashtbl.length pl.defs);
   Hashtbl.iter
@@ -74,9 +61,6 @@ let pp (fmt : Format.formatter) pl =
   Format.fprintf fmt "%i approx shapes:@ @[%a@],@ "
     (Hashtbl.length pl.approximated)
     pp_partials pl.approximated;
-  Format.fprintf fmt "%i unreduced shapes:@ @[%a@]@ "
-    (List.length pl.unresolved)
-    pp_unresolved pl.unresolved;
   Format.fprintf fmt "and shapes for CUS %s.@ "
     (String.concat ";@," (Hashtbl.to_seq_keys pl.cu_shape |> List.of_seq))
 
@@ -98,11 +82,16 @@ let read ~file =
   Merlin_utils.Misc.try_finally
     ~always:(fun () -> close_in ic)
     (fun () ->
-      let file_magic_number = Cmt_format.read_magic_number ic in
+      let file_magic_number = ref (Cmt_format.read_magic_number ic) in
+      let cmi_magic_number = Ocaml_utils.Config.cmi_magic_number in
       let cmt_magic_number = Ocaml_utils.Config.cmt_magic_number in
-      if String.equal file_magic_number cmt_magic_number then
+      if String.equal !file_magic_number cmi_magic_number then begin
+        let _ = Cmi_format.input_cmi ic in
+        file_magic_number := Cmt_format.read_magic_number ic
+      end;
+      if String.equal !file_magic_number cmt_magic_number then
         Cmt (input_value ic : Cmt_format.cmt_infos)
-      else if String.equal file_magic_number magic_number then
+      else if String.equal !file_magic_number magic_number then
         Index (input_value ic : index)
       else Unknown)
 
