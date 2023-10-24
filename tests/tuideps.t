@@ -24,11 +24,11 @@
 
   $ ocamlc -bin-annot -store-usage-index -c bar.ml foo.ml main.ml
 
-  $ ocaml-uideps process-cmt -o main.uideps main.cmt
-  $ ocaml-uideps process-cmt -o foo.uideps foo.cmt
-  $ ocaml-uideps process-cmt -o bar.uideps bar.cmt
+  $ ocaml-index process-cmt -o main.uideps main.cmt
+  $ ocaml-index process-cmt -o foo.uideps foo.cmt
+  $ ocaml-index process-cmt -o bar.uideps bar.cmt
 
-  $ ocaml-uideps dump main.uideps
+  $ ocaml-index dump main.uideps
   13 uids:
   {uid: Foo.2; locs:
      "Foo.y": File "main.ml", line 1, characters 16-21;
@@ -59,7 +59,7 @@
      "+": File "main.ml", line 4, characters 26-27
    }, 0 approx shapes: {}, and shapes for CUS .
 
-  $ ocaml-uideps dump foo.uideps
+  $ ocaml-index dump foo.uideps
   5 uids:
   {uid: Foo.2; locs: "y": File "foo.ml", line 3, characters 4-5
    uid: Foo.0; locs: "t": File "foo.ml", line 1, characters 5-6
@@ -74,8 +74,8 @@
 
 
 
-  $ ocaml-uideps process-cmt -o test.uideps main.cmt foo.cmt bar.cmt
-  $ ocaml-uideps dump test.uideps
+  $ ocaml-index process-cmt -o test.uideps main.cmt foo.cmt bar.cmt
+  $ ocaml-index dump test.uideps
   13 uids:
   {uid: Foo.2; locs:
      "y": File "foo.ml", line 3, characters 4-5;
