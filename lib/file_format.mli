@@ -1,4 +1,7 @@
 open Import
+
+exception Not_an_index of string
+
 module LidSet : Set.S with type elt = Longident.t Location.loc
 
 type index = {
@@ -9,10 +12,14 @@ type index = {
   cu_shape : (string, Shape.t) Hashtbl.t;
 }
 
-type file_format = V1 of index
-
-val pp_payload : Format.formatter -> index -> unit
-val pp : Format.formatter -> file_format -> unit
+val pp : Format.formatter -> index -> unit
 val ext : string
 val write : file:string -> index -> unit
-val read : file:string -> index
+
+type file_content =
+  | Cmt of Cmt_format.cmt_infos
+  | Index of index
+  | Unknown
+
+val read : file:string -> file_content
+val read_exn : file:string -> index

@@ -79,7 +79,7 @@ module Aggregate = struct
 end
 
 module Dump = struct
-  let dump file = File_format.(read ~file |> pp_payload Format.std_formatter)
+  let dump file = File_format.(read_exn ~file |> pp Format.std_formatter)
 
   let file =
     let doc = "the file to dump" in

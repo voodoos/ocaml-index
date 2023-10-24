@@ -3,4 +3,5 @@
  (libraries
   merlin-lib.ocaml_typing
   merlin-lib.ocaml_parsing
+  merlin-lib.ocaml_utils
   merlin-lib.analysis))
