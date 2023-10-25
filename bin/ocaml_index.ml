@@ -26,7 +26,7 @@ module Common = struct
       & info [ "o"; "output-file" ] ~doc)
 end
 
-module Index = struct
+module Aggregate = struct
   let from_files store_shapes root output_file build_path file =
     Uideps.from_files ~store_shapes ~root ~output_file ~build_path file
 
@@ -60,31 +60,6 @@ module Index = struct
   let cmd =
     let info =
       let doc = "builds the index for a single $(i, .cmt) file" in
-      Cmd.info "process-cmt" ~doc
-    in
-    Cmd.v info (Common.with_log term)
-end
-
-module Aggregate = struct
-  let aggregate output_file store_shapes files =
-    Uideps.from_files ~store_shapes ~output_file files
-
-  let store_shapes =
-    let doc =
-      "aggregate input-indexes shapes and store them in the new index"
-    in
-    Arg.(value & flag & info [ "store-shapes" ] ~doc)
-
-  let indexes =
-    let doc = "the indexes to aggregate" in
-    Arg.(non_empty & pos_all string [] & info [] ~doc)
-
-  let term =
-    Term.(const aggregate $ Common.output_file $ store_shapes $ indexes)
-
-  let cmd =
-    let info =
-      let doc = "merge multiple indexes into a unique one" in
       Cmd.info "aggregate" ~doc
     in
     Cmd.v info (Common.with_log term)
@@ -112,6 +87,6 @@ let subcommands =
     let doc = "An indexer for OCaml's artifacts" in
     Cmd.info "ocaml-uideps" ~doc
   in
-  Cmd.group info [ Index.cmd; Dump.cmd ]
+  Cmd.group info ~default:Aggregate.term [ Aggregate.cmd; Dump.cmd ]
 
 let () = exit (Cmd.eval subcommands)

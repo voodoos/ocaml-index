@@ -24,9 +24,9 @@
 
   $ ocamlc -bin-annot -store-usage-index -c bar.ml foo.ml main.ml
 
-  $ ocaml-index process-cmt -o main.uideps main.cmt
-  $ ocaml-index process-cmt -o foo.uideps foo.cmt
-  $ ocaml-index process-cmt -o bar.uideps bar.cmt
+  $ ocaml-index aggregate -o main.uideps main.cmt
+  $ ocaml-index aggregate -o foo.uideps foo.cmt
+  $ ocaml-index aggregate -o bar.uideps bar.cmt
 
   $ ocaml-index dump main.uideps
   13 uids:
@@ -74,7 +74,7 @@
 
 
 
-  $ ocaml-index process-cmt -o test.uideps main.cmt foo.cmt bar.cmt
+  $ ocaml-index -o test.uideps main.cmt foo.cmt bar.cmt
   $ ocaml-index dump test.uideps
   13 uids:
   {uid: Foo.2; locs:
