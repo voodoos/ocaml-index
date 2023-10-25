@@ -85,10 +85,9 @@ let read ~file =
       let file_magic_number = ref (Cmt_format.read_magic_number ic) in
       let cmi_magic_number = Ocaml_utils.Config.cmi_magic_number in
       let cmt_magic_number = Ocaml_utils.Config.cmt_magic_number in
-      if String.equal !file_magic_number cmi_magic_number then begin
-        let _ = Cmi_format.input_cmi ic in
-        file_magic_number := Cmt_format.read_magic_number ic
-      end;
+      (if String.equal !file_magic_number cmi_magic_number then
+         let _ = Cmi_format.input_cmi ic in
+         file_magic_number := Cmt_format.read_magic_number ic);
       if String.equal !file_magic_number cmt_magic_number then
         Cmt (input_value ic : Cmt_format.cmt_infos)
       else if String.equal !file_magic_number magic_number then
@@ -96,7 +95,4 @@ let read ~file =
       else Unknown)
 
 let read_exn ~file =
-  match read ~file with
-  | Index index -> index
-  | _ -> raise (Not_an_index file)
-
+  match read ~file with Index index -> index | _ -> raise (Not_an_index file)

@@ -150,29 +150,31 @@ let index_of_cmt ~root ~build_path cmt_infos =
   } =
     cmt_infos
   in
-  Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ()) (fun () ->
-  Load_path.(init cmt_loadpath);
-  let public_shapes = Option.get cmt_impl_shape in
-  let defs = Hashtbl.create 64 in
-  add_locs_from_fragments ~root defs cmt_uid_to_decl;
-  let approximated = Hashtbl.create 64 in
-  List.iter
-    (fun (lid, (item : Shape.reduction_result)) ->
-      match item with
-      | Resolved uid -> add defs uid (LidSet.singleton lid)
-      | Unresolved shape -> (
-          match Shape_full_reduce.reduce_for_uid Env.empty shape with
+  Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ())
+    (fun () ->
+      Load_path.(init cmt_loadpath);
+      let public_shapes = Option.get cmt_impl_shape in
+      let defs = Hashtbl.create 64 in
+      add_locs_from_fragments ~root defs cmt_uid_to_decl;
+      let approximated = Hashtbl.create 64 in
+      List.iter
+        (fun (lid, (item : Shape.reduction_result)) ->
+          match item with
           | Resolved uid -> add defs uid (LidSet.singleton lid)
+          | Unresolved shape -> (
+              match Shape_full_reduce.reduce_for_uid Env.empty shape with
+              | Resolved uid -> add defs uid (LidSet.singleton lid)
+              | Approximated (Some uid) ->
+                  add approximated uid (LidSet.singleton lid)
+              | _ -> ())
           | Approximated (Some uid) ->
               add approximated uid (LidSet.singleton lid)
           | _ -> ())
-      | Approximated (Some uid) -> add approximated uid (LidSet.singleton lid)
-      | _ -> ())
-    cmt_ident_occurrences;
-  let cu_shape = Hashtbl.create 1 in
-  Hashtbl.add cu_shape cmt_modname public_shapes;
-  let load_path = List.concat [ cmt_loadpath; build_path ] in
-   { defs; approximated; load_path; cu_shape })
+        cmt_ident_occurrences;
+      let cu_shape = Hashtbl.create 1 in
+      Hashtbl.add cu_shape cmt_modname public_shapes;
+      let load_path = List.concat [ cmt_loadpath; build_path ] in
+      { defs; approximated; load_path; cu_shape })
 
 (** [generate ~root ~output_file ~build_path cmt] indexes the cmt [cmt] by
       iterating on its [Typedtree] and reducing partially the shapes of every
@@ -182,19 +184,18 @@ let index_of_cmt ~root ~build_path cmt_infos =
       [build_path] argument.
     - If [root] is provided all location paths will be made absolute *)
 (* let generate ~root ~output_file ~build_path cmt =
-  Log.debug "Generating index for cmt %S\n%!" cmt;
-  index_of_cmt ~root ~build_path cmt
-  |> Option.iter (fun index ->
-         Log.debug "Writing to %s\n%!" output_file;
-         File_format.write ~file:output_file index) *)
+   Log.debug "Generating index for cmt %S\n%!" cmt;
+   index_of_cmt ~root ~build_path cmt
+   |> Option.iter (fun index ->
+          Log.debug "Writing to %s\n%!" output_file;
+          File_format.write ~file:output_file index) *)
 
 let merge_index ~store_shapes ~into index =
   merge_tbl index.defs ~into:into.defs;
   merge_tbl index.approximated ~into:into.approximated;
 
-  if store_shapes then Hashtbl.add_seq index.cu_shape
-    (Hashtbl.to_seq into.cu_shape)
-
+  if store_shapes then
+    Hashtbl.add_seq index.cu_shape (Hashtbl.to_seq into.cu_shape)
 
 let from_files ~store_shapes ~output_file ~root ~build_path files =
   let final_index =

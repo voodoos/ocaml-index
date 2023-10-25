@@ -15,10 +15,7 @@ val pp : Format.formatter -> index -> unit
 val ext : string
 val write : file:string -> index -> unit
 
-type file_content =
-  | Cmt of Cmt_format.cmt_infos
-  | Index of index
-  | Unknown
+type file_content = Cmt of Cmt_format.cmt_infos | Index of index | Unknown
 
 val read : file:string -> file_content
 val read_exn : file:string -> index
