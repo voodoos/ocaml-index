@@ -146,6 +146,7 @@ let index_of_cmt ~root ~build_path cmt_infos =
     cmt_modname;
     cmt_uid_to_decl;
     cmt_ident_occurrences;
+    cmt_initial_env;
     _;
   } =
     cmt_infos
@@ -159,10 +160,11 @@ let index_of_cmt ~root ~build_path cmt_infos =
       let approximated = Hashtbl.create 64 in
       List.iter
         (fun (lid, (item : Shape.reduction_result)) ->
+          let lid = add_root ~root lid in
           match item with
           | Resolved uid -> add defs uid (LidSet.singleton lid)
           | Unresolved shape -> (
-              match Shape_full_reduce.reduce_for_uid Env.empty shape with
+              match Shape_full_reduce.reduce_for_uid cmt_initial_env shape with
               | Resolved uid -> add defs uid (LidSet.singleton lid)
               | Approximated (Some uid) ->
                   add approximated uid (LidSet.singleton lid)
