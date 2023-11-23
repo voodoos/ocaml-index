@@ -109,21 +109,7 @@ module Shape_full_reduce = Shape.Make_reduce (struct
   let read_unit_shape ~unit_name =
     Log.debug "Read unit shape: %s\n%!" unit_name;
     try_load ~unit_name ()
-
-  let find_shape env id =
-    (* When partial reduction is performed only the summary of the env is stored on the
-       filesystem. We need to reconstitute the complete envoronment but we do it only if
-       we need it. *)
-    find_shape env id
 end)
-
-(* Hijack loader to print requested modules *)
-(* let () =
-   let old_load = !Persistent_env.Persistent_signature.load in
-   Persistent_env.Persistent_signature.load :=
-     fun ~unit_name ->
-       Log.debug "Loading CU %s\n" unit_name;
-       old_load ~unit_name *)
 
 (** Cmt files contains a table of declarations' Uids associated to a typedtree
     fragment. [add_locs_from_fragments] gather locations from these *)
@@ -234,30 +220,3 @@ let from_files ~store_shapes ~output_file ~root ~build_path files =
       merge_index ~store_shapes index ~into:final_index)
     files;
   File_format.write ~file:output_file final_index
-
-(*
-let aggregate ~store_shapes ~output_file =
-  let defs = Hashtbl.create 256 in
-  let partials = Hashtbl.create 64 in
-  let merge_file ~cu_shape file =
-    let pl = File_format.read ~file in
-    Log.debug "Aggregating file %s\n" file;
-    if store_shapes then Hashtbl.add_seq cu_shape (Hashtbl.to_seq pl.cu_shape);
-    merge_tbl pl.defs ~into:defs;
-    merge_tbl pl.partials ~into:partials;
-    Load_path.(init pl.load_path);
-    List.iter
-      (fun (shape, lid) ->
-        match Shape_full_reduce.weak_reduce Env.empty shape with
-        | { desc = Leaf | Struct _; uid = Some uid } ->
-            add defs uid (LidSet.singleton lid)
-        | s ->
-            Log.debug "Partial shape: %a\n" Shape.print s;
-            add partials shape (LidSet.singleton lid))
-      pl.unreduced
-  in
-  fun files ->
-    let cu_shape = Hashtbl.create (List.length files) in
-    List.iter (merge_file ~cu_shape) files;
-    File_format.write ~file:output_file
-      { defs; partials; unreduced = []; load_path = []; cu_shape } *)
