@@ -8,8 +8,9 @@
 
 (package
  (name ocaml-index)
- (synopsis "A tool that indexes value usages in a cmt file.")
+ (synopsis "A tool that indexes value usages from cmt files.")
  (description "ocaml-index should integrate with the build system to index a \
   codebase.")
  (depends
-  (cmdliner (>= "1.1.0"))))
+  (cmdliner (>= "1.1.0"))
+  (merlin-lib (>= "4.13"))))
