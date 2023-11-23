@@ -151,6 +151,18 @@ let index_of_cmt ~root ~build_path cmt_infos =
   } =
     cmt_infos
   in
+  let keep_aliases = function
+    | Shape.
+        {
+          uid = Some (Item { comp_unit; _ });
+          desc = Alias { desc = Comp_unit alias_cu; _ };
+          _;
+        }
+      when let by = comp_unit ^ "__" in
+           Merlin_utils.Std.String.is_prefixed ~by alias_cu ->
+        false
+    | _ -> true
+  in
   Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ())
     (fun () ->
       Load_path.(init cmt_loadpath);
@@ -164,7 +176,10 @@ let index_of_cmt ~root ~build_path cmt_infos =
           match item with
           | Resolved uid -> add defs uid (LidSet.singleton lid)
           | Unresolved shape -> (
-              match Shape_full_reduce.reduce_for_uid cmt_initial_env shape with
+              match
+                Shape_full_reduce.reduce_for_uid ~keep_aliases cmt_initial_env
+                  shape
+              with
               | Resolved uid -> add defs uid (LidSet.singleton lid)
               | Approximated (Some uid) ->
                   add approximated uid (LidSet.singleton lid)
