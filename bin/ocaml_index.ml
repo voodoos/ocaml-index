@@ -43,8 +43,8 @@ module Aggregate = struct
     Arg.(non_empty & pos_all string [] & info [] ~doc)
 
   let build_path =
-    let doc = "the extra build path" in
-    Arg.(value & pos_right 0 string [] & info [] ~doc)
+    let doc = "an extra directory to add to the load path" in
+    Arg.(value & opt_all string [] & info [ "I" ] ~doc)
 
   let store_shapes =
     let doc =

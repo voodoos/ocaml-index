@@ -151,7 +151,8 @@ let index_of_cmt ~root ~build_path cmt_infos =
   in
   Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ())
     (fun () ->
-      Load_path.(init cmt_loadpath);
+      let load_path = List.concat [ cmt_loadpath; build_path ] in
+      Load_path.(init load_path);
       let public_shapes = Option.get cmt_impl_shape in
       let defs = Hashtbl.create 64 in
       add_locs_from_fragments ~root defs cmt_uid_to_decl;
@@ -176,7 +177,6 @@ let index_of_cmt ~root ~build_path cmt_infos =
         cmt_ident_occurrences;
       let cu_shape = Hashtbl.create 1 in
       Hashtbl.add cu_shape cmt_modname public_shapes;
-      let load_path = List.concat [ cmt_loadpath; build_path ] in
       { defs; approximated; load_path; cu_shape })
 
 (** [generate ~root ~output_file ~build_path cmt] indexes the cmt [cmt] by
