@@ -41,70 +41,19 @@ module Reduce_common = struct
     Env.shape_of_path ~namespace:Shape.Sig_component_kind.Module env (Pident id)
 end
 
-let index_shapes = Hashtbl.create 128
-
 module Shape_full_reduce = Shape.Make_reduce (struct
   include Reduce_common
 
-  let load_index comp_unit filename =
-    Log.debug "Looking for shapes in %S\n" filename;
-    match File_format.read ~file:(Load_path.find_uncap filename) with
-    | Index { cu_shape; _ } ->
-        Log.debug "Succesfully loaded %S\nIt contains shapes for %s\n\n%!"
-          filename
-          (String.concat "; " (Hashtbl.to_seq_keys cu_shape |> List.of_seq));
-        Hashtbl.add index_shapes comp_unit cu_shape;
-        Hashtbl.find_opt cu_shape comp_unit
-    | Cmt _ | Unknown | (exception Not_found) ->
-        Log.debug "Failed to load file %S in load_path: @[%s@]\n%!" filename
+  let try_load ~unit_name () =
+    let cmt = Format.sprintf "%s.cmt" unit_name in
+    match Cmt_format.read (Load_path.find_uncap cmt) with
+    | _, Some cmt_infos ->
+        Log.debug "Loaded CMT %s" cmt;
+        cmt_infos.cmt_impl_shape
+    | _ | (exception Not_found) ->
+        Log.warn "Failed to load file %S in load_path: @[%s@]\n%!" cmt
         @@ String.concat "; " (Load_path.get_paths ());
         None
-
-  let try_load ~unit_name () =
-    let lib_name =
-      let rec prefix acc = function
-        | [] | "" :: _ -> List.rev acc |> String.concat "_"
-        | segment :: tl -> prefix (segment :: acc) tl
-      in
-      prefix [] (String.split_on_char '_' unit_name)
-    in
-
-    (* This is an awful hack: we don't know if the shapes are in another module of the
-       same library, or in the global index of another library or the stdlib/another
-       external installed cmt. So we try them all.
-
-       The shapes could also have already been loaded from a stanza's index.
-
-       todo: check risk of finding the wrong shape todo: we could instantiate the functor
-       later (just before starting the reduction) and take advantage of more information
-    *)
-    Log.debug "Lookup %s (%s) in the already loaded shapes." lib_name unit_name;
-    let shape =
-      match Hashtbl.find_opt index_shapes lib_name with
-      | Some tbl -> Hashtbl.find_opt tbl unit_name
-      | None -> None
-    in
-    match shape with
-    | Some shape -> Some shape
-    | None -> (
-        let index_index = Format.sprintf "%s.stanza.merlin-index" unit_name in
-        match load_index unit_name index_index with
-        | Some shape -> Some shape
-        | None -> (
-            let index = Format.sprintf "%s.merlin-index" unit_name in
-            match load_index unit_name index with
-            | Some shape -> Some shape
-            | None -> (
-                let cmt = Format.sprintf "%s.cmt" unit_name in
-                match Cmt_format.read (Load_path.find_uncap cmt) with
-                | _, Some cmt_infos ->
-                    Log.debug "Loaded CMT %s" cmt;
-                    cmt_infos.cmt_impl_shape
-                | _ | (exception Not_found) ->
-                    Log.warn "Failed to load file %S in load_path: @[%s@]\n%!"
-                      cmt
-                    @@ String.concat "; " (Load_path.get_paths ());
-                    None)))
 
   let read_unit_shape ~unit_name =
     Log.debug "Read unit shape: %s\n%!" unit_name;
@@ -178,20 +127,6 @@ let index_of_cmt ~root ~build_path cmt_infos =
       let cu_shape = Hashtbl.create 1 in
       Hashtbl.add cu_shape cmt_modname public_shapes;
       { defs; approximated; load_path; cu_shape })
-
-(** [generate ~root ~output_file ~build_path cmt] indexes the cmt [cmt] by
-      iterating on its [Typedtree] and reducing partially the shapes of every
-      value.
-    - In some cases (implicit transitive deps) the [build_path] contains in the
-      cmt file might be missing entries, these can be provided using the
-      [build_path] argument.
-    - If [root] is provided all location paths will be made absolute *)
-(* let generate ~root ~output_file ~build_path cmt =
-   Log.debug "Generating index for cmt %S\n%!" cmt;
-   index_of_cmt ~root ~build_path cmt
-   |> Option.iter (fun index ->
-          Log.debug "Writing to %s\n%!" output_file;
-          File_format.write ~file:output_file index) *)
 
 let merge_index ~store_shapes ~into index =
   merge_tbl index.defs ~into:into.defs;
