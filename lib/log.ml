@@ -11,7 +11,7 @@ module Level = struct
   let ( >= ) a b = int_of_t a >= int_of_t b
 end
 
-let log_level = ref Level.Warning
+let log_level = ref Level.Error
 let set_log_level level = log_level := level
 
 let log ~level =

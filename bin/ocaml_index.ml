@@ -16,6 +16,8 @@ module Common = struct
     let doc = "set maximum log verbosity" in
     Arg.(value & flag & info [ "debug" ] ~doc)
 
+  (* FIXME: this does not work as expected: the log level is set after the
+     program execution. *)
   let with_log t = Term.(const set_log_level $ debug $ verbose $ t)
 
   let output_file =
