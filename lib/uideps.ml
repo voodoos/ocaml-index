@@ -6,6 +6,9 @@ type typedtree =
   | Interface of Typedtree.signature
   | Implementation of Typedtree.structure
 
+let with_root ?root file =
+  match root with None -> file | Some root -> Filename.concat root file
+
 let add_root ~root (lid : Longident.t Location.loc) =
   match root with
   | None -> lid
@@ -82,6 +85,7 @@ let index_of_cmt ~root ~build_path cmt_infos =
     cmt_uid_to_decl;
     cmt_ident_occurrences;
     cmt_initial_env;
+    cmt_sourcefile;
     _;
   } =
     cmt_infos
@@ -126,18 +130,29 @@ let index_of_cmt ~root ~build_path cmt_infos =
         cmt_ident_occurrences;
       let cu_shape = Hashtbl.create 1 in
       Hashtbl.add cu_shape cmt_modname public_shapes;
-      let stats = Stats.empty in
+      let stats =
+        match cmt_sourcefile with
+        | None -> Stats.empty
+        | Some src -> (
+            let src = with_root ?root src in
+            try Stats.singleton src (Unix.stat src).st_mtime
+            with Unix.Unix_error _ -> Stats.empty)
+      in
       { defs; approximated; load_path; cu_shape; stats })
 
 let merge_index ~store_shapes ~into index =
   merge_tbl index.defs ~into:into.defs;
   merge_tbl index.approximated ~into:into.approximated;
-
   if store_shapes then
-    Hashtbl.add_seq index.cu_shape (Hashtbl.to_seq into.cu_shape)
+    Hashtbl.add_seq index.cu_shape (Hashtbl.to_seq into.cu_shape);
+  {
+    into with
+    stats =
+      Stats.union (fun _ f1 f2 -> Some (Float.max f1 f2)) into.stats index.stats;
+  }
 
 let from_files ~store_shapes ~output_file ~root ~build_path files =
-  let final_index =
+  let initial_index =
     {
       defs = Hashtbl.create 256;
       approximated = Hashtbl.create 0;
@@ -146,14 +161,16 @@ let from_files ~store_shapes ~output_file ~root ~build_path files =
       stats = Stats.empty;
     }
   in
-  List.iter
-    (fun file ->
-      let index =
-        match read ~file with
-        | Cmt cmt_infos -> index_of_cmt ~root ~build_path cmt_infos
-        | Index index -> index
-        | Unknown -> failwith "unknown file type"
-      in
-      merge_index ~store_shapes index ~into:final_index)
-    files;
+  let final_index =
+    List.fold_left
+      (fun into file ->
+        let index =
+          match read ~file with
+          | Cmt cmt_infos -> index_of_cmt ~root ~build_path cmt_infos
+          | Index index -> index
+          | Unknown -> failwith "unknown file type"
+        in
+        merge_index ~store_shapes index ~into)
+      initial_index files
+  in
   write ~file:output_file final_index
