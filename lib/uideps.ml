@@ -1,5 +1,5 @@
 open Import
-open File_format
+open Merlin_analysis.Index_format
 module Kind = Shape.Sig_component_kind
 
 type typedtree =
@@ -126,7 +126,8 @@ let index_of_cmt ~root ~build_path cmt_infos =
         cmt_ident_occurrences;
       let cu_shape = Hashtbl.create 1 in
       Hashtbl.add cu_shape cmt_modname public_shapes;
-      { defs; approximated; load_path; cu_shape })
+      let stats = Stats.empty in
+      { defs; approximated; load_path; cu_shape; stats })
 
 let merge_index ~store_shapes ~into index =
   merge_tbl index.defs ~into:into.defs;
@@ -142,16 +143,17 @@ let from_files ~store_shapes ~output_file ~root ~build_path files =
       approximated = Hashtbl.create 0;
       load_path = [];
       cu_shape = Hashtbl.create 64;
+      stats = Stats.empty;
     }
   in
   List.iter
     (fun file ->
       let index =
-        match File_format.read ~file with
+        match read ~file with
         | Cmt cmt_infos -> index_of_cmt ~root ~build_path cmt_infos
         | Index index -> index
         | Unknown -> failwith "unknown file type"
       in
       merge_index ~store_shapes index ~into:final_index)
     files;
-  File_format.write ~file:output_file final_index
+  write ~file:output_file final_index
