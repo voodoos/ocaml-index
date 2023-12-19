@@ -1,5 +1,6 @@
 open Import
-open Merlin_analysis.Index_format
+module MA = Merlin_analysis
+open MA.Index_format
 module Kind = Shape.Sig_component_kind
 
 type typedtree =
@@ -34,18 +35,8 @@ let add tbl uid locs =
 
 let merge_tbl ~into tbl = Hashtbl.iter (add into) tbl
 
-module Reduce_common = struct
-  type env = Env.t
-
+module Reduce = Shape_reduce.Make (struct
   let fuel = 10
-
-  let find_shape env id =
-    (* Todo: Test when applying functor arg which is in another CU *)
-    Env.shape_of_path ~namespace:Shape.Sig_component_kind.Module env (Pident id)
-end
-
-module Shape_full_reduce = Shape.Make_reduce (struct
-  include Reduce_common
 
   let try_load ~unit_name () =
     let cmt = Format.sprintf "%s.cmt" unit_name in
@@ -90,18 +81,6 @@ let index_of_cmt ~root ~build_path cmt_infos =
   } =
     cmt_infos
   in
-  let keep_aliases = function
-    | Shape.
-        {
-          uid = Some (Item { comp_unit; _ });
-          desc = Alias { desc = Comp_unit alias_cu; _ };
-          _;
-        }
-      when let by = comp_unit ^ "__" in
-           Merlin_utils.Std.String.is_prefixed ~by alias_cu ->
-        false
-    | _ -> true
-  in
   Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ())
     (fun () ->
       let load_path = List.concat [ cmt_loadpath; build_path ] in
@@ -111,15 +90,15 @@ let index_of_cmt ~root ~build_path cmt_infos =
       add_locs_from_fragments ~root defs cmt_uid_to_decl;
       let approximated = Hashtbl.create 64 in
       List.iter
-        (fun (lid, (item : Shape.reduction_result)) ->
+        (fun (lid, (item : Shape_reduce.result)) ->
           let lid = add_root ~root lid in
           match item with
           | Resolved uid -> add defs uid (LidSet.singleton lid)
+          | Resolved_alias l ->
+              let uid = MA.Locate.uid_of_aliases ~traverse_aliases:false l in
+              add defs uid (LidSet.singleton lid)
           | Unresolved shape -> (
-              match
-                Shape_full_reduce.reduce_for_uid ~keep_aliases cmt_initial_env
-                  shape
-              with
+              match Reduce.reduce_for_uid cmt_initial_env shape with
               | Resolved uid -> add defs uid (LidSet.singleton lid)
               | Approximated (Some uid) ->
                   add approximated uid (LidSet.singleton lid)
