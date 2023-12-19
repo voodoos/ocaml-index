@@ -100,6 +100,9 @@ let index_of_cmt ~root ~build_path cmt_infos =
           | Unresolved shape -> (
               match Reduce.reduce_for_uid cmt_initial_env shape with
               | Resolved uid -> add defs uid (LidSet.singleton lid)
+              | Resolved_alias l ->
+                  let uid = MA.Locate.uid_of_aliases ~traverse_aliases:false l in
+                  add defs uid (LidSet.singleton lid)
               | Approximated (Some uid) ->
                   add approximated uid (LidSet.singleton lid)
               | _ -> ())
