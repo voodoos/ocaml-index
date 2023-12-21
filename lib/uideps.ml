@@ -85,9 +85,9 @@ let index_of_cmt ~root ~build_path cmt_infos =
     (fun () ->
       let load_path = List.concat [ cmt_loadpath; build_path ] in
       Load_path.(init load_path);
-      let public_shapes = Option.get cmt_impl_shape in
       let defs = Hashtbl.create 64 in
-      add_locs_from_fragments ~root defs cmt_uid_to_decl;
+      if Option.is_some cmt_impl_shape then
+        add_locs_from_fragments ~root defs cmt_uid_to_decl;
       let approximated = Hashtbl.create 64 in
       List.iter
         (fun (lid, (item : Shape_reduce.result)) ->
@@ -111,7 +111,7 @@ let index_of_cmt ~root ~build_path cmt_infos =
           | _ -> ())
         cmt_ident_occurrences;
       let cu_shape = Hashtbl.create 1 in
-      Hashtbl.add cu_shape cmt_modname public_shapes;
+      Option.iter (Hashtbl.add cu_shape cmt_modname) cmt_impl_shape;
       let stats =
         match cmt_sourcefile with
         | None -> Stats.empty
