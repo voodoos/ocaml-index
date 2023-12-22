@@ -54,26 +54,12 @@ module Reduce = Shape_reduce.Make (struct
     try_load ~unit_name ()
 end)
 
-(** Cmt files contains a table of declarations' Uids associated to a typedtree
-    fragment. [add_locs_from_fragments] gather locations from these *)
-let add_locs_from_fragments ~root tbl fragments =
-  let to_located_lid (name : string Location.loc) =
-    { name with txt = Longident.Lident name.txt }
-  in
-  let add_loc uid fragment =
-    Merlin_analysis.Misc_utils.loc_of_decl ~uid fragment
-    |> Option.iter (fun lid ->
-           let lid = add_root ~root (to_located_lid lid) in
-           Hashtbl.add tbl uid @@ LidSet.singleton lid)
-  in
-  Shape.Uid.Tbl.iter add_loc fragments
-
 let index_of_cmt ~root ~build_path cmt_infos =
   let {
     Cmt_format.cmt_loadpath;
     cmt_impl_shape;
     cmt_modname;
-    cmt_uid_to_decl;
+    cmt_uid_to_decl = _;
     cmt_ident_occurrences;
     cmt_initial_env;
     cmt_sourcefile;
@@ -86,8 +72,6 @@ let index_of_cmt ~root ~build_path cmt_infos =
       let load_path = List.concat [ cmt_loadpath; build_path ] in
       Load_path.(init load_path);
       let defs = Hashtbl.create 64 in
-      if Option.is_some cmt_impl_shape then
-        add_locs_from_fragments ~root defs cmt_uid_to_decl;
       let approximated = Hashtbl.create 64 in
       List.iter
         (fun (lid, (item : Shape_reduce.result)) ->
