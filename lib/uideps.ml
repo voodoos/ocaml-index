@@ -77,6 +77,7 @@ let index_of_cmt ~root ~build_path cmt_infos =
     cmt_ident_occurrences;
     cmt_initial_env;
     cmt_sourcefile;
+    cmt_source_digest;
     _;
   } =
     cmt_infos
@@ -119,7 +120,14 @@ let index_of_cmt ~root ~build_path cmt_infos =
         | None -> Stats.empty
         | Some src -> (
             let src = with_root ?root src in
-            try Stats.singleton src (Unix.stat src).st_mtime
+            try
+              let stats = Unix.stat src in
+              Stats.singleton src
+                {
+                  mtime = stats.st_mtime;
+                  size = stats.st_size;
+                  source_digest = cmt_source_digest;
+                }
             with Unix.Unix_error _ -> Stats.empty)
       in
       { defs; approximated; load_path; cu_shape; stats })
@@ -131,8 +139,7 @@ let merge_index ~store_shapes ~into index =
     Hashtbl.add_seq index.cu_shape (Hashtbl.to_seq into.cu_shape);
   {
     into with
-    stats =
-      Stats.union (fun _ f1 f2 -> Some (Float.max f1 f2)) into.stats index.stats;
+    stats = Stats.union (fun _ _f1 _f2 -> None) into.stats index.stats;
   }
 
 let from_files ~store_shapes ~output_file ~root ~build_path files =
