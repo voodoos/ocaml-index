@@ -30,7 +30,7 @@ end
 
 module Aggregate = struct
   let from_files store_shapes root output_file build_path file =
-    Uideps.from_files ~store_shapes ~root ~output_file ~build_path file
+    Index.from_files ~store_shapes ~root ~output_file ~build_path file
 
   let root =
     let doc = "if provided all locations will be appended to that path" in
@@ -88,7 +88,7 @@ end
 let subcommands =
   let info =
     let doc = "An indexer for OCaml's artifacts" in
-    Cmd.info "ocaml-uideps" ~doc
+    Cmd.info "ocaml-index" ~doc
   in
   Cmd.group info ~default:Aggregate.term [ Aggregate.cmd; Dump.cmd ]
 
