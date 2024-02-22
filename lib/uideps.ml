@@ -1,6 +1,6 @@
 open Import
 module MA = Merlin_analysis
-open MA.Index_format
+open Merlin_index_format.Index_format
 module Kind = Shape.Sig_component_kind
 
 type typedtree =
@@ -40,13 +40,13 @@ module Reduce = Shape_reduce.Make (struct
 
   let try_load ~unit_name () =
     let cmt = Format.sprintf "%s.cmt" unit_name in
-    match Cmt_format.read (Load_path.find_uncap cmt) with
+    match Cmt_format.read (Load_path.find_normalized cmt) with
     | _, Some cmt_infos ->
         Log.debug "Loaded CMT %s" cmt;
         cmt_infos.cmt_impl_shape
     | _ | (exception Not_found) ->
         Log.warn "Failed to load file %S in load_path: @[%s@]\n%!" cmt
-        @@ String.concat "; " (Load_path.get_paths ());
+        @@ String.concat "; " (Load_path.get_path_list ());
         None
 
   let read_unit_shape ~unit_name =
@@ -84,8 +84,8 @@ let index_of_cmt ~root ~build_path cmt_infos =
   in
   Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ())
     (fun () ->
-      let load_path = List.concat [ cmt_loadpath; build_path ] in
-      Load_path.(init load_path);
+      let visible = List.concat [ cmt_loadpath.visible; build_path ] in
+      Load_path.(init ~auto_include:Load_path.no_auto_include ~visible ~hidden:cmt_loadpath.hidden);
       let defs = Hashtbl.create 64 in
       if Option.is_some cmt_impl_shape then
         add_locs_from_fragments ~root defs cmt_uid_to_decl;
@@ -130,6 +130,7 @@ let index_of_cmt ~root ~build_path cmt_infos =
                 }
             with Unix.Unix_error _ -> Stats.empty)
       in
+      let load_path = Load_path.get_paths () in
       { defs; approximated; load_path; cu_shape; stats })
 
 let merge_index ~store_shapes ~into index =
@@ -147,7 +148,7 @@ let from_files ~store_shapes ~output_file ~root ~build_path files =
     {
       defs = Hashtbl.create 256;
       approximated = Hashtbl.create 0;
-      load_path = [];
+      load_path = { Load_path.visible = []; hidden = [] };
       cu_shape = Hashtbl.create 64;
       stats = Stats.empty;
     }

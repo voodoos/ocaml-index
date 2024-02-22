@@ -24,7 +24,7 @@ module Common = struct
     let doc = "name of the generated index" in
     Arg.(
       value
-      & opt string (Arg.doc_quote "project.index")
+      & opt string "project.ocaml-index"
       & info [ "o"; "output-file" ] ~doc)
 end
 
@@ -69,7 +69,7 @@ end
 
 module Dump = struct
   let dump file =
-    Merlin_analysis.Index_format.(read_exn ~file |> pp Format.std_formatter)
+    Merlin_index_format.Index_format.(read_exn ~file |> pp Format.std_formatter)
 
   let file =
     let doc = "the file to dump" in

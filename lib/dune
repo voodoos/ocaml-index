@@ -4,4 +4,5 @@
   merlin-lib.ocaml_typing
   merlin-lib.ocaml_parsing
   merlin-lib.ocaml_utils
-  merlin-lib.analysis))
+  merlin-lib.analysis
+  merlin-lib.index_format))
