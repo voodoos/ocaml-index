@@ -40,11 +40,11 @@ module Reduce = Shape_reduce.Make (struct
 
   let try_load ~unit_name () =
     let cmt = Format.sprintf "%s.cmt" unit_name in
-    match Cmt_format.read (Load_path.find_normalized cmt) with
-    | _, Some cmt_infos ->
+    match Cmt_cache.read (Load_path.find_normalized cmt) with
+    | cmt_item ->
         Log.debug "Loaded CMT %s" cmt;
-        cmt_infos.cmt_impl_shape
-    | _ | (exception Not_found) ->
+        cmt_item.cmt_infos.cmt_impl_shape
+    | (exception Not_found) ->
         Log.warn "Failed to load file %S in load_path: @[%s@]\n%!" cmt
         @@ String.concat "; " (Load_path.get_path_list ());
         None
