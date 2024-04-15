@@ -13,4 +13,4 @@
   codebase.")
  (depends
   (cmdliner (>= "1.1.0"))
-  (merlin-lib (>= "4.13"))))
+  (merlin-lib (>= "5.0"))))
