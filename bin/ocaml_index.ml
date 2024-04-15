@@ -42,7 +42,7 @@ module Aggregate = struct
 
   let files =
     let doc = "the files to index" in
-    Arg.(non_empty & pos_all string [] & info [] ~doc)
+    Arg.(value & pos_all string [] & info [] ~doc)
 
   let build_path =
     let doc = "an extra directory to add to the load path" in
