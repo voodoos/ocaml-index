@@ -93,25 +93,14 @@ let index_of_cmt ~root ~build_path cmt_infos =
       List.iter
         (fun (lid, (item : Shape_reduce.result)) ->
           let lid = add_root ~root lid in
-          match item with
-          | Resolved uid -> add defs uid (LidSet.singleton lid)
-          | Resolved_alias l ->
-              let uid = MA.Locate.uid_of_aliases ~traverse_aliases:false l in
-              add defs uid (LidSet.singleton lid)
-          | Unresolved shape -> (
-              match Reduce.reduce_for_uid cmt_initial_env shape with
-              | Resolved uid -> add defs uid (LidSet.singleton lid)
-              | Resolved_alias l ->
-                  let uid =
-                    MA.Locate.uid_of_aliases ~traverse_aliases:false l
-                  in
-                  add defs uid (LidSet.singleton lid)
-              | Approximated (Some uid) ->
-                  add approximated uid (LidSet.singleton lid)
-              | _ -> ())
-          | Approximated (Some uid) ->
-              add approximated uid (LidSet.singleton lid)
-          | _ -> ())
+          let resolved = match item with
+            | Unresolved shape -> Reduce.reduce_for_uid cmt_initial_env shape
+            | result -> result
+          in
+          match MA.Locate.uid_of_result ~traverse_aliases:false resolved with
+          | Some uid, false -> add defs uid (LidSet.singleton lid)
+          | Some uid, true -> add approximated uid (LidSet.singleton lid)
+          | None, _ -> ())
         cmt_ident_occurrences;
       let cu_shape = Hashtbl.create 1 in
       Option.iter (Hashtbl.add cu_shape cmt_modname) cmt_impl_shape;
