@@ -35,7 +35,21 @@ let add tbl uid locs =
 
 let merge_tbl ~into tbl = Hashtbl.iter (add into) tbl
 
-module Reduce = Shape_reduce.Make (struct
+(** Cmt files contains a table of declarations' Uids associated to a typedtree
+    fragment. [add_locs_from_fragments] gather locations from these *)
+let add_locs_from_fragments ~root tbl fragments =
+  let to_located_lid (name : string Location.loc) =
+    { name with txt = Longident.Lident name.txt }
+  in
+  let add_loc uid fragment =
+    Merlin_analysis.Misc_utils.loc_of_decl ~uid fragment
+    |> Option.iter (fun lid ->
+           let lid = add_root ~root (to_located_lid lid) in
+           Hashtbl.add tbl uid @@ LidSet.singleton lid)
+  in
+  Shape.Uid.Tbl.iter add_loc fragments
+
+module Reduce_conf = struct
   let fuel = 10
 
   let try_load ~unit_name () =
@@ -52,21 +66,7 @@ module Reduce = Shape_reduce.Make (struct
   let read_unit_shape ~unit_name =
     Log.debug "Read unit shape: %s\n%!" unit_name;
     try_load ~unit_name ()
-end)
-
-(** Cmt files contains a table of declarations' Uids associated to a typedtree
-    fragment. [add_locs_from_fragments] gather locations from these *)
-let add_locs_from_fragments ~root tbl fragments =
-  let to_located_lid (name : string Location.loc) =
-    { name with txt = Longident.Lident name.txt }
-  in
-  let add_loc uid fragment =
-    Merlin_analysis.Misc_utils.loc_of_decl ~uid fragment
-    |> Option.iter (fun lid ->
-           let lid = add_root ~root (to_located_lid lid) in
-           Hashtbl.add tbl uid @@ LidSet.singleton lid)
-  in
-  Shape.Uid.Tbl.iter add_loc fragments
+end
 
 let init_load_path_once =
   let loaded = ref false in
@@ -92,6 +92,7 @@ let index_of_cmt ~root ~build_path cmt_infos =
     cmt_infos
   in
   init_load_path_once ~dirs:build_path cmt_loadpath;
+  let module Reduce = Shape_reduce.Make (Reduce_conf) in
   let defs = Hashtbl.create 64 in
   if Option.is_some cmt_impl_shape then
     add_locs_from_fragments ~root defs cmt_uid_to_decl;
