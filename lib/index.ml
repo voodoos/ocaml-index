@@ -44,7 +44,7 @@ module Reduce = Shape_reduce.Make (struct
     | cmt_item ->
         Log.debug "Loaded CMT %s" cmt;
         cmt_item.cmt_infos.cmt_impl_shape
-    | (exception Not_found) ->
+    | exception Not_found ->
         Log.warn "Failed to load file %S in load_path: @[%s@]\n%!" cmt
         @@ String.concat "; " (Load_path.get_path_list ());
         None
@@ -68,6 +68,15 @@ let add_locs_from_fragments ~root tbl fragments =
   in
   Shape.Uid.Tbl.iter add_loc fragments
 
+let set_load_path_once =
+  let loaded = ref false in
+  fun ~dirs cmt_loadpath ->
+    if not !loaded then (
+      let visible = List.concat [ cmt_loadpath.Load_path.visible; dirs ] in
+      Load_path.(
+        init ~auto_include:no_auto_include ~visible ~hidden:cmt_loadpath.hidden);
+      loaded := true)
+
 let index_of_cmt ~root ~build_path cmt_infos =
   let {
     Cmt_format.cmt_loadpath;
@@ -82,56 +91,50 @@ let index_of_cmt ~root ~build_path cmt_infos =
   } =
     cmt_infos
   in
-  Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ())
-    (fun () ->
-      let visible = List.concat [ cmt_loadpath.visible; build_path ] in
-      Load_path.(init ~auto_include:Load_path.no_auto_include ~visible ~hidden:cmt_loadpath.hidden);
-      let defs = Hashtbl.create 64 in
-      if Option.is_some cmt_impl_shape then
-        add_locs_from_fragments ~root defs cmt_uid_to_decl;
-      let approximated = Hashtbl.create 64 in
-      List.iter
-        (fun (lid, (item : Shape_reduce.result)) ->
-          let lid = add_root ~root lid in
-          match item with
+  set_load_path_once ~dirs:build_path cmt_loadpath;
+  let defs = Hashtbl.create 64 in
+  if Option.is_some cmt_impl_shape then
+    add_locs_from_fragments ~root defs cmt_uid_to_decl;
+  let approximated = Hashtbl.create 64 in
+  List.iter
+    (fun (lid, (item : Shape_reduce.result)) ->
+      let lid = add_root ~root lid in
+      match item with
+      | Resolved uid -> add defs uid (LidSet.singleton lid)
+      | Resolved_alias l ->
+          let uid = MA.Locate.uid_of_aliases ~traverse_aliases:false l in
+          add defs uid (LidSet.singleton lid)
+      | Unresolved shape -> (
+          match Reduce.reduce_for_uid cmt_initial_env shape with
           | Resolved uid -> add defs uid (LidSet.singleton lid)
           | Resolved_alias l ->
               let uid = MA.Locate.uid_of_aliases ~traverse_aliases:false l in
               add defs uid (LidSet.singleton lid)
-          | Unresolved shape -> (
-              match Reduce.reduce_for_uid cmt_initial_env shape with
-              | Resolved uid -> add defs uid (LidSet.singleton lid)
-              | Resolved_alias l ->
-                  let uid =
-                    MA.Locate.uid_of_aliases ~traverse_aliases:false l
-                  in
-                  add defs uid (LidSet.singleton lid)
-              | Approximated (Some uid) ->
-                  add approximated uid (LidSet.singleton lid)
-              | _ -> ())
           | Approximated (Some uid) ->
               add approximated uid (LidSet.singleton lid)
           | _ -> ())
-        cmt_ident_occurrences;
-      let cu_shape = Hashtbl.create 1 in
-      Option.iter (Hashtbl.add cu_shape cmt_modname) cmt_impl_shape;
-      let stats =
-        match cmt_sourcefile with
-        | None -> Stats.empty
-        | Some src -> (
-            let src = with_root ?root src in
-            try
-              let stats = Unix.stat src in
-              Stats.singleton src
-                {
-                  mtime = stats.st_mtime;
-                  size = stats.st_size;
-                  source_digest = cmt_source_digest;
-                }
-            with Unix.Unix_error _ -> Stats.empty)
-      in
-      let load_path = Load_path.get_paths () in
-      { defs; approximated; load_path; cu_shape; stats })
+      | Approximated (Some uid) -> add approximated uid (LidSet.singleton lid)
+      | _ -> ())
+    cmt_ident_occurrences;
+  let cu_shape = Hashtbl.create 1 in
+  Option.iter (Hashtbl.add cu_shape cmt_modname) cmt_impl_shape;
+  let stats =
+    match cmt_sourcefile with
+    | None -> Stats.empty
+    | Some src -> (
+        let src = with_root ?root src in
+        try
+          let stats = Unix.stat src in
+          Stats.singleton src
+            {
+              mtime = stats.st_mtime;
+              size = stats.st_size;
+              source_digest = cmt_source_digest;
+            }
+        with Unix.Unix_error _ -> Stats.empty)
+  in
+  let load_path = { Load_path.visible = []; hidden = [] } in
+  { defs; approximated; load_path; cu_shape; stats }
 
 let merge_index ~store_shapes ~into index =
   merge_tbl index.defs ~into:into.defs;
@@ -154,15 +157,19 @@ let from_files ~store_shapes ~output_file ~root ~build_path files =
     }
   in
   let final_index =
-    List.fold_left
-      (fun into file ->
-        let index =
-          match read ~file with
-          | Cmt cmt_infos -> index_of_cmt ~root ~build_path cmt_infos
-          | Index index -> index
-          | Unknown -> failwith "unknown file type"
-        in
-        merge_index ~store_shapes index ~into)
-      initial_index files
+    Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ())
+      (fun () ->
+        List.fold_left
+          (fun into file ->
+            let index =
+              match Cmt_cache.read file with
+              | cmt_item -> index_of_cmt ~root ~build_path cmt_item.cmt_infos
+              | exception _ -> (
+                  match read ~file with
+                  | Index index -> index
+                  | _ -> failwith "unknown file type")
+            in
+            merge_index ~store_shapes index ~into)
+          initial_index files)
   in
   write ~file:output_file final_index
