@@ -1,7 +1,9 @@
 open Import
 module MA = Merlin_analysis
-open Merlin_index_format.Index_format
+
+(* open Merlin_index_format.Index_format *)
 module Kind = Shape.Sig_component_kind
+open Index_format
 
 type typedtree =
   | Interface of Typedtree.signature
@@ -27,27 +29,31 @@ let add_root ~root (lid : Longident.t Location.loc) =
 
 (** [add tbl uid locs] adds a binding of [uid] to the locations [locs]. If this key is
     already present the locations are merged. *)
-let add tbl uid locs =
-  try
-    let locations = Hashtbl.find tbl uid in
-    Hashtbl.replace tbl uid (LidSet.union locs locations)
-  with Not_found -> Hashtbl.add tbl uid locs
+let add map uid locs =
+  Shape.Uid.Map.update uid
+    (function
+      | None -> Some locs | Some locs' -> Some (Lid_set.union locs' locs))
+    map
 
-let merge_tbl ~into tbl = Hashtbl.iter (add into) tbl
+let merge m m' =
+  Shape.Uid.Map.union
+    (fun _uid locs locs' -> Some (Lid_set.union locs locs'))
+    m m'
 
 (** Cmt files contains a table of declarations' Uids associated to a typedtree
     fragment. [add_locs_from_fragments] gather locations from these *)
-let add_locs_from_fragments ~root tbl fragments =
+let gather_locs_from_fragments ~root map fragments =
   let to_located_lid (name : string Location.loc) =
     { name with txt = Longident.Lident name.txt }
   in
-  let add_loc uid fragment =
-    Merlin_analysis.Misc_utils.loc_of_decl ~uid fragment
-    |> Option.iter (fun lid ->
-           let lid = add_root ~root (to_located_lid lid) in
-           Hashtbl.add tbl uid @@ LidSet.singleton lid)
+  let add_loc uid fragment acc =
+    match Merlin_analysis.Misc_utils.loc_of_decl ~uid fragment with
+    | None -> acc
+    | Some lid ->
+        let lid = add_root ~root (to_located_lid lid) in
+        Shape.Uid.Map.add uid (Lid_set.singleton lid) acc
   in
-  Shape.Uid.Tbl.iter add_loc fragments
+  Shape.Uid.Tbl.fold add_loc fragments map
 
 module Reduce_conf = struct
   let fuel = 10
@@ -93,23 +99,26 @@ let index_of_cmt ~root ~build_path cmt_infos =
   in
   init_load_path_once ~dirs:build_path cmt_loadpath;
   let module Reduce = Shape_reduce.Make (Reduce_conf) in
-  let defs = Hashtbl.create 64 in
-  if Option.is_some cmt_impl_shape then
-    add_locs_from_fragments ~root defs cmt_uid_to_decl;
-  let approximated = Hashtbl.create 64 in
-  List.iter
-    (fun (lid, (item : Shape_reduce.result)) ->
-      let lid = add_root ~root lid in
-      let resolved =
-        match item with
-        | Unresolved shape -> Reduce.reduce_for_uid cmt_initial_env shape
-        | result -> result
-      in
-      match MA.Locate.uid_of_result ~traverse_aliases:false resolved with
-      | Some uid, false -> add defs uid (LidSet.singleton lid)
-      | Some uid, true -> add approximated uid (LidSet.singleton lid)
-      | None, _ -> ())
-    cmt_ident_occurrences;
+  let defs =
+    if Option.is_none cmt_impl_shape then Shape.Uid.Map.empty
+    else gather_locs_from_fragments ~root Shape.Uid.Map.empty cmt_uid_to_decl
+  in
+  let defs, approximated =
+    List.fold_left
+      (fun ((acc_defs, acc_apx) as acc) (lid, (item : Shape_reduce.result)) ->
+        let lid = add_root ~root lid in
+        let resolved =
+          match item with
+          | Unresolved shape -> Reduce.reduce_for_uid cmt_initial_env shape
+          | result -> result
+        in
+        match MA.Locate.uid_of_result ~traverse_aliases:false resolved with
+        | Some uid, false -> (add acc_defs uid (Lid_set.singleton lid), acc_apx)
+        | Some uid, true -> (acc_defs, add acc_apx uid (Lid_set.singleton lid))
+        | None, _ -> acc)
+      (defs, Shape.Uid.Map.empty)
+      cmt_ident_occurrences
+  in
   let cu_shape = Hashtbl.create 1 in
   Option.iter (Hashtbl.add cu_shape cmt_modname) cmt_impl_shape;
   let stats =
@@ -127,25 +136,21 @@ let index_of_cmt ~root ~build_path cmt_infos =
             }
         with Unix.Unix_error _ -> Stats.empty)
   in
-  let load_path = { Load_path.visible = []; hidden = [] } in
-  { defs; approximated; load_path; cu_shape; stats }
+  { defs; approximated; cu_shape; stats }
 
 let merge_index ~store_shapes ~into index =
-  merge_tbl index.defs ~into:into.defs;
-  merge_tbl index.approximated ~into:into.approximated;
+  let defs = merge index.defs into.defs in
+  let approximated = merge index.approximated into.approximated in
+  let stats = Stats.union (fun _ _f1 _f2 -> None) into.stats index.stats in
   if store_shapes then
     Hashtbl.add_seq index.cu_shape (Hashtbl.to_seq into.cu_shape);
-  {
-    into with
-    stats = Stats.union (fun _ _f1 _f2 -> None) into.stats index.stats;
-  }
+  { into with defs; approximated; stats }
 
 let from_files ~store_shapes ~output_file ~root ~build_path files =
   let initial_index =
     {
-      defs = Hashtbl.create 256;
-      approximated = Hashtbl.create 0;
-      load_path = { Load_path.visible = []; hidden = [] };
+      defs = Shape.Uid.Map.empty;
+      approximated = Shape.Uid.Map.empty;
       cu_shape = Hashtbl.create 64;
       stats = Stats.empty;
     }
