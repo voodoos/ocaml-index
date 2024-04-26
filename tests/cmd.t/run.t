@@ -1,39 +1,38 @@
 Test various error situations:
 
   $ ocaml-index file.cmt
-  ocaml-uideps: unknown command 'file.cmt', must be either 'aggregate' or 'dump'.
-  Usage: ocaml-uideps [COMMAND] …
-  Try 'ocaml-uideps --help' for more information.
+  ocaml-index: unknown command 'file.cmt', must be either 'aggregate' or 'dump'.
+  Usage: ocaml-index [COMMAND] …
+  Try 'ocaml-index --help' for more information.
   [124]
 
   $ ocaml-index process-cmt
-  ocaml-uideps: unknown command 'process-cmt', must be either 'aggregate' or 'dump'.
-  Usage: ocaml-uideps [COMMAND] …
-  Try 'ocaml-uideps --help' for more information.
+  ocaml-index: unknown command 'process-cmt', must be either 'aggregate' or 'dump'.
+  Usage: ocaml-index [COMMAND] …
+  Try 'ocaml-index --help' for more information.
   [124]
 
   $ ocaml-index aggregate
-  ocaml-uideps: a required argument is missing
-  Usage: ocaml-uideps aggregate [OPTION]… ARG… [ARG]…
-  Try 'ocaml-uideps aggregate --help' or 'ocaml-uideps --help' for more information.
-  [124]
 
   $ ocaml-index --help=plain
   NAME
-         ocaml-uideps - An indexer for OCaml's artifacts
+         ocaml-index - An indexer for OCaml's artifacts
   
   SYNOPSIS
-         ocaml-uideps [COMMAND] …
+         ocaml-index [COMMAND] …
   
   COMMANDS
-         aggregate [OPTION]… ARG… [ARG]…
+         aggregate [OPTION]… [ARG]…
              builds the index for a single .cmt file
   
          dump [OPTION]… ARG
              print the content of an index file to stdout
   
   OPTIONS
-         -o VAL, --output-file=VAL (absent='project.index')
+         -I VAL
+             an extra directory to add to the load path
+  
+         -o VAL, --output-file=VAL (absent=project.ocaml-index)
              name of the generated index
   
          --root=VAL
@@ -49,7 +48,7 @@ Test various error situations:
              whenever the TERM env var is dumb or undefined.
   
   EXIT STATUS
-         ocaml-uideps exits with:
+         ocaml-index exits with:
   
          0   on success.
   
@@ -61,16 +60,19 @@ Test various error situations:
   
   $ ocaml-index aggregate --help=plain
   NAME
-         ocaml-uideps-aggregate - builds the index for a single .cmt file
+         ocaml-index-aggregate - builds the index for a single .cmt file
   
   SYNOPSIS
-         ocaml-uideps aggregate [OPTION]… ARG… [ARG]…
+         ocaml-index aggregate [OPTION]… [ARG]…
   
   OPTIONS
          --debug
              set maximum log verbosity
   
-         -o VAL, --output-file=VAL (absent='project.index')
+         -I VAL
+             an extra directory to add to the load path
+  
+         -o VAL, --output-file=VAL (absent=project.ocaml-index)
              name of the generated index
   
          --root=VAL
@@ -89,7 +91,7 @@ Test various error situations:
              whenever the TERM env var is dumb or undefined.
   
   EXIT STATUS
-         ocaml-uideps aggregate exits with:
+         ocaml-index aggregate exits with:
   
          0   on success.
   
@@ -100,14 +102,14 @@ Test various error situations:
          125 on unexpected internal errors (bugs).
   
   SEE ALSO
-         ocaml-uideps(1)
+         ocaml-index(1)
   
   $ ocaml-index dump --help=plain
   NAME
-         ocaml-uideps-dump - print the content of an index file to stdout
+         ocaml-index-dump - print the content of an index file to stdout
   
   SYNOPSIS
-         ocaml-uideps dump [OPTION]… ARG
+         ocaml-index dump [OPTION]… ARG
   
   COMMON OPTIONS
          --help[=FMT] (default=auto)
@@ -116,7 +118,7 @@ Test various error situations:
              whenever the TERM env var is dumb or undefined.
   
   EXIT STATUS
-         ocaml-uideps dump exits with:
+         ocaml-index dump exits with:
   
          0   on success.
   
@@ -127,5 +129,5 @@ Test various error situations:
          125 on unexpected internal errors (bugs).
   
   SEE ALSO
-         ocaml-uideps(1)
+         ocaml-index(1)
   
