@@ -6,13 +6,14 @@ Test various error situations:
   Try 'ocaml-index --help' for more information.
   [124]
 
-  $ ocaml-index process-cmt
-  ocaml-index: unknown command 'process-cmt', must be either 'aggregate' or 'dump'.
+  $ ocaml-index agregate
+  ocaml-index: unknown command 'agregate', did you mean 'aggregate'?
   Usage: ocaml-index [COMMAND] …
   Try 'ocaml-index --help' for more information.
   [124]
 
   $ ocaml-index aggregate
+  $ ocaml-index aggregate --debug
 
   $ ocaml-index --help=plain
   NAME
@@ -25,10 +26,13 @@ Test various error situations:
          aggregate [OPTION]… [ARG]…
              builds the index for a single .cmt file
   
-         dump [OPTION]… ARG
+         dump [--debug] [--verbose] [OPTION]… ARG
              print the content of an index file to stdout
   
   OPTIONS
+         --debug
+             set maximum log verbosity
+  
          -I VAL
              an extra directory to add to the load path
   
@@ -40,6 +44,9 @@ Test various error situations:
   
          --store-shapes
              aggregate input-indexes shapes and store them in the new index
+  
+         -v, --verbose
+             increase log verbosity
   
   COMMON OPTIONS
          --help[=FMT] (default=auto)
@@ -109,7 +116,14 @@ Test various error situations:
          ocaml-index-dump - print the content of an index file to stdout
   
   SYNOPSIS
-         ocaml-index dump [OPTION]… ARG
+         ocaml-index dump [--debug] [--verbose] [OPTION]… ARG
+  
+  OPTIONS
+         --debug
+             set maximum log verbosity
+  
+         -v, --verbose
+             increase log verbosity
   
   COMMON OPTIONS
          --help[=FMT] (default=auto)

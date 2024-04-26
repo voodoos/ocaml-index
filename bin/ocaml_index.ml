@@ -2,11 +2,10 @@ open Lib
 open Cmdliner
 
 module Common = struct
-  let set_log_level debug verbose continue =
+  let set_log_level debug verbose =
     Log.set_log_level Error;
     if verbose then Log.set_log_level Warning;
-    if debug then Log.set_log_level Debug;
-    continue
+    if debug then Log.set_log_level Debug
 
   let verbose =
     let doc = "increase log verbosity" in
@@ -18,7 +17,7 @@ module Common = struct
 
   (* FIXME: this does not work as expected: the log level is set after the
      program execution. *)
-  let with_log t = Term.(const set_log_level $ debug $ verbose $ t)
+  let with_log = Term.(const set_log_level $ debug $ verbose )
 
   let output_file =
     let doc = "name of the generated index" in
@@ -29,7 +28,7 @@ module Common = struct
 end
 
 module Aggregate = struct
-  let from_files store_shapes root output_file build_path file =
+  let from_files store_shapes root output_file build_path file () =
     Index.from_files ~store_shapes ~root ~output_file ~build_path file
 
   let root =
@@ -57,25 +56,25 @@ module Aggregate = struct
   let term =
     Term.(
       const from_files $ store_shapes $ root $ Common.output_file $ build_path
-      $ files)
+      $ files $ Common.with_log)
 
   let cmd =
     let info =
       let doc = "builds the index for a single $(i, .cmt) file" in
       Cmd.info "aggregate" ~doc
     in
-    Cmd.v info (Common.with_log term)
+    Cmd.v info ( term)
 end
 
 module Dump = struct
-  let dump file =
+  let dump file () =
     Merlin_index_format.Index_format.(read_exn ~file |> pp Format.std_formatter)
 
   let file =
     let doc = "the file to dump" in
     Arg.(required & pos 0 (some string) None & info [] ~doc)
 
-  let term = Term.(const dump $ file)
+  let term = Term.(const dump $ file $ Common.with_log)
 
   let cmd =
     let info =
