@@ -1,9 +1,7 @@
 open Import
 module MA = Merlin_analysis
-
-(* open Merlin_index_format.Index_format *)
 module Kind = Shape.Sig_component_kind
-open Index_format
+open Merlin_index_format.Index_format
 
 type typedtree =
   | Interface of Typedtree.signature
@@ -26,14 +24,6 @@ let add_root ~root (lid : Longident.t Location.loc) =
             loc_end = { lid.loc.loc_end with pos_fname };
           };
       }
-
-(** [add tbl uid locs] adds a binding of [uid] to the locations [locs]. If this key is
-    already present the locations are merged. *)
-let add map uid locs =
-  Shape.Uid.Map.update uid
-    (function
-      | None -> Some locs | Some locs' -> Some (Lid_set.union locs' locs))
-    map
 
 let merge m m' =
   Shape.Uid.Map.union
