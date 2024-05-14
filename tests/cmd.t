@@ -14,6 +14,7 @@ Test various error situations:
 
   $ ocaml-index aggregate
   $ ocaml-index aggregate --debug
+  [debug] Debug log is enabled
 
   $ ocaml-index --help=plain
   NAME

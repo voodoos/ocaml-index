@@ -3,10 +3,6 @@ module MA = Merlin_analysis
 module Kind = Shape.Sig_component_kind
 open Merlin_index_format.Index_format
 
-type typedtree =
-  | Interface of Typedtree.signature
-  | Implementation of Typedtree.structure
-
 let with_root ?root file =
   match root with None -> file | Some root -> Filename.concat root file
 
@@ -137,6 +133,7 @@ let merge_index ~store_shapes ~into index =
   { into with defs; approximated; stats }
 
 let from_files ~store_shapes ~output_file ~root ~build_path files =
+  Log.debug "Debug log is enabled";
   let initial_index =
     {
       defs = Shape.Uid.Map.empty;
@@ -147,18 +144,20 @@ let from_files ~store_shapes ~output_file ~root ~build_path files =
   in
   let final_index =
     Ocaml_utils.Local_store.with_store (Ocaml_utils.Local_store.fresh ())
-      (fun () ->
-        List.fold_left
-          (fun into file ->
-            let index =
-              match Cmt_cache.read file with
-              | cmt_item -> index_of_cmt ~root ~build_path cmt_item.cmt_infos
-              | exception _ -> (
-                  match read ~file with
-                  | Index index -> index
-                  | _ -> failwith "unknown file type")
-            in
-            merge_index ~store_shapes index ~into)
-          initial_index files)
+    @@ fun () ->
+    List.fold_left
+      (fun into file ->
+        let index =
+          match Cmt_cache.read file with
+          | cmt_item -> index_of_cmt ~root ~build_path cmt_item.cmt_infos
+          | exception _ -> (
+              match read ~file with
+              | Index index -> index
+              | _ ->
+                  Log.error "Unknown file type: %s" file;
+                  exit 1)
+        in
+        merge_index ~store_shapes index ~into)
+      initial_index files
   in
   write ~file:output_file final_index

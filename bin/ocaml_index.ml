@@ -1,3 +1,5 @@
+(** The indexer's binary *)
+
 open Lib
 open Cmdliner
 
@@ -15,7 +17,7 @@ module Common = struct
     let doc = "set maximum log verbosity" in
     Arg.(value & flag & info [ "debug" ] ~doc)
 
-  let with_log = Term.(const set_log_level $ debug $ verbose )
+  let with_log = Term.(const set_log_level $ debug $ verbose)
 
   let output_file =
     let doc = "name of the generated index" in
@@ -26,16 +28,12 @@ module Common = struct
 end
 
 module Aggregate = struct
-  let from_files store_shapes root output_file build_path file () =
-    Index.from_files ~store_shapes ~root ~output_file ~build_path file
+  let from_files store_shapes root output_file build_path files () =
+    Index.from_files ~store_shapes ~root ~output_file ~build_path files
 
   let root =
     let doc = "if provided all locations will be appended to that path" in
     Arg.(value & opt (some string) None & info [ "root" ] ~doc)
-
-  let cmt_file =
-    let doc = "the $(i, .cmt) file to be indexed" in
-    Arg.(required & pos 0 (some string) None & info [] ~doc)
 
   let files =
     let doc = "the files to index" in
@@ -61,7 +59,7 @@ module Aggregate = struct
       let doc = "builds the index for a single $(i, .cmt) file" in
       Cmd.info "aggregate" ~doc
     in
-    Cmd.v info ( term)
+    Cmd.v info term
 end
 
 module Dump = struct
