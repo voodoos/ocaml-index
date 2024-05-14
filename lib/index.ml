@@ -127,7 +127,7 @@ let index_of_cmt ~root ~build_path cmt_infos =
 let merge_index ~store_shapes ~into index =
   let defs = merge index.defs into.defs in
   let approximated = merge index.approximated into.approximated in
-  let stats = Stats.union (fun _ _f1 _f2 -> None) into.stats index.stats in
+  let stats = Stats.union (fun _ f1 _f2 -> Some f1) into.stats index.stats in
   if store_shapes then
     Hashtbl.add_seq index.cu_shape (Hashtbl.to_seq into.cu_shape);
   { into with defs; approximated; stats }
