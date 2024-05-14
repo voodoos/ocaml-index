@@ -25,6 +25,3 @@ build: [
   ]
   ["dune" "install" "-p" name "--create-install-files" name]
 ]
-pin-depends: [
-  ["merlin-lib.5.0-502" "git+https://github.com/voodoos/merlin#502-preview+PWO"]
-]
