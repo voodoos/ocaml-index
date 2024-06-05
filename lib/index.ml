@@ -28,7 +28,7 @@ let merge m m' =
 
 (** Cmt files contains a table of declarations' Uids associated to a typedtree
     fragment. [add_locs_from_fragments] gather locations from these *)
-let gather_locs_from_fragments ~root map fragments =
+let gather_locs_from_fragments ~root ~rewrite_root map fragments =
   let to_located_lid (name : string Location.loc) =
     { name with txt = Longident.Lident name.txt }
   in
@@ -36,7 +36,8 @@ let gather_locs_from_fragments ~root map fragments =
     match Merlin_analysis.Misc_utils.loc_of_decl ~uid fragment with
     | None -> acc
     | Some lid ->
-        let lid = add_root ~root (to_located_lid lid) in
+        let lid = to_located_lid lid in
+        let lid = if rewrite_root then add_root ~root lid else lid in
         Shape.Uid.Map.add uid (Lid_set.singleton lid) acc
   in
   Shape.Uid.Tbl.fold add_loc fragments map
@@ -69,7 +70,7 @@ let init_load_path_once =
         init ~auto_include:no_auto_include ~visible ~hidden:cmt_loadpath.hidden);
       loaded := true)
 
-let index_of_cmt ~root ~build_path cmt_infos =
+let index_of_cmt ~root ~rewrite_root ~build_path cmt_infos =
   let {
     Cmt_format.cmt_loadpath;
     cmt_impl_shape;
@@ -87,12 +88,12 @@ let index_of_cmt ~root ~build_path cmt_infos =
   let module Reduce = Shape_reduce.Make (Reduce_conf) in
   let defs =
     if Option.is_none cmt_impl_shape then Shape.Uid.Map.empty
-    else gather_locs_from_fragments ~root Shape.Uid.Map.empty cmt_uid_to_decl
+    else gather_locs_from_fragments ~root ~rewrite_root Shape.Uid.Map.empty cmt_uid_to_decl
   in
   let defs, approximated =
     List.fold_left
       (fun ((acc_defs, acc_apx) as acc) (lid, (item : Shape_reduce.result)) ->
-        let lid = add_root ~root lid in
+        let lid = if rewrite_root then add_root ~root lid else lid in
         let resolved =
           match item with
           | Unresolved shape -> Reduce.reduce_for_uid cmt_initial_env shape
@@ -111,9 +112,10 @@ let index_of_cmt ~root ~build_path cmt_infos =
     match cmt_sourcefile with
     | None -> Stats.empty
     | Some src -> (
-        let src = with_root ?root src in
+        let rooted_src = with_root ?root src in
         try
-          let stats = Unix.stat src in
+          let stats = Unix.stat rooted_src in
+          let src = if rewrite_root then rooted_src else src in
           Stats.singleton src
             {
               mtime = stats.st_mtime;
@@ -122,7 +124,7 @@ let index_of_cmt ~root ~build_path cmt_infos =
             }
         with Unix.Unix_error _ -> Stats.empty)
   in
-  { defs; approximated; cu_shape; stats }
+  { defs; approximated; cu_shape; stats; root_directory = None }
 
 let merge_index ~store_shapes ~into index =
   let defs = merge index.defs into.defs in
@@ -132,7 +134,7 @@ let merge_index ~store_shapes ~into index =
     Hashtbl.add_seq index.cu_shape (Hashtbl.to_seq into.cu_shape);
   { into with defs; approximated; stats }
 
-let from_files ~store_shapes ~output_file ~root ~build_path files =
+let from_files ~store_shapes ~output_file ~root ~rewrite_root ~build_path files =
   Log.debug "Debug log is enabled";
   let initial_index =
     {
@@ -140,6 +142,7 @@ let from_files ~store_shapes ~output_file ~root ~build_path files =
       approximated = Shape.Uid.Map.empty;
       cu_shape = Hashtbl.create 64;
       stats = Stats.empty;
+      root_directory = root;
     }
   in
   let final_index =
@@ -149,7 +152,7 @@ let from_files ~store_shapes ~output_file ~root ~build_path files =
       (fun into file ->
         let index =
           match Cmt_cache.read file with
-          | cmt_item -> index_of_cmt ~root ~build_path cmt_item.cmt_infos
+          | cmt_item -> index_of_cmt ~root ~rewrite_root ~build_path cmt_item.cmt_infos
           | exception _ -> (
               match read ~file with
               | Index index -> index

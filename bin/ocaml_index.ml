@@ -9,6 +9,7 @@ let input_files = ref []
 let build_path = ref []
 let output_file = ref "project.ocaml-index"
 let root = ref ""
+let rewrite_root = ref false
 let store_shapes = ref false
 
 type command = Aggregate | Dump | Stats
@@ -32,6 +33,7 @@ let speclist =
    ("--debug", Arg.Set debug, "Output debugging information");
    ("-o", Arg.Set_string output_file, "Set output file name");
    ("--root", Arg.Set_string root, "Set the root path for all relative locations");
+   ("--rewrite-root", Arg.Set rewrite_root, "Rewrite locations paths using the provided root");
    ("--store-shapes", Arg.Set store_shapes, "Aggregate input-indexes shapes and store them in the new index");
    ("-I", Arg.String (fun arg -> build_path := arg::!build_path), "An extra directory to add to the load path");]
 
@@ -47,7 +49,7 @@ let () =
   (match !command with
   | Some Aggregate ->
     let root = if String.equal "" !root then None else Some !root in
-    Index.from_files ~store_shapes:!store_shapes ~root ~output_file:!output_file ~build_path:!build_path !input_files
+    Index.from_files ~store_shapes:!store_shapes ~root ~rewrite_root:!rewrite_root ~output_file:!output_file ~build_path:!build_path !input_files
   | Some Dump ->
       List.iter (fun file ->
       Merlin_index_format.Index_format.(read_exn ~file |> pp Format.std_formatter))

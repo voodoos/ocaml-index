@@ -8,6 +8,7 @@
     --debug Output debugging information
     -o Set output file name
     --root Set the root path for all relative locations
+    --rewrite-root Rewrite locations paths using the provided root
     --store-shapes Aggregate input-indexes shapes and store them in the new index
     -I An extra directory to add to the load path
     -help  Display this list of options
