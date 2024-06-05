@@ -5,8 +5,7 @@ description:
   "ocaml-index should integrate with the build system to index a codebase."
 depends: [
   "dune" {>= "2.9"}
-  "cmdliner" {>= "1.1.0"}
-  "merlin-lib" {>= "5.0"}
+  "merlin-lib" {>= "5.1"}
   "odoc" {with-doc}
 ]
 build: [

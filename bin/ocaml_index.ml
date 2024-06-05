@@ -1,90 +1,55 @@
 (** The indexer's binary *)
 
 open Lib
-open Cmdliner
 
-module Common = struct
-  let set_log_level debug verbose =
-    Log.set_log_level Error;
-    if verbose then Log.set_log_level Warning;
-    if debug then Log.set_log_level Debug
+let usage_msg = "ocaml-index [COMMAND] [-verbose] <file1> [<file2>] ... -o <output>"
+let verbose = ref false
+let debug = ref false
+let input_files = ref []
+let build_path = ref []
+let output_file = ref "project.ocaml-index"
+let root = ref ""
+let store_shapes = ref false
 
-  let verbose =
-    let doc = "increase log verbosity" in
-    Arg.(value & flag & info [ "v"; "verbose" ] ~doc)
+type command = Aggregate | Dump
+let parse_command = function
+  | "aggregate" -> Some Aggregate
+  | "dump" -> Some Dump
+  | _ -> None
+let command = ref None
+let anon_fun arg =
+    match !command with
+    | None ->
+      begin match parse_command arg with
+      | Some cmd -> command := Some cmd
+      | None -> command := Some Aggregate; input_files := arg::!input_files
+    end
+    | Some _ -> input_files := arg::!input_files
 
-  let debug =
-    let doc = "set maximum log verbosity" in
-    Arg.(value & flag & info [ "debug" ] ~doc)
+let speclist =
+  [("--verbose", Arg.Set verbose, "Output more information");
+   ("--debug", Arg.Set debug, "Output debugging information");
+   ("-o", Arg.Set_string output_file, "Set output file name");
+   ("--root", Arg.Set_string root, "Set the root path for all relative locations");
+   ("--store-shapes", Arg.Set store_shapes, "Aggregate input-indexes shapes and store them in the new index");
+   ("-I", Arg.String (fun arg -> build_path := arg::!build_path), "An extra directory to add to the load path");]
 
-  let with_log = Term.(const set_log_level $ debug $ verbose)
 
-  let output_file =
-    let doc = "name of the generated index" in
-    Arg.(
-      value
-      & opt string "project.ocaml-index"
-      & info [ "o"; "output-file" ] ~doc)
-end
+let set_log_level debug verbose =
+  Log.set_log_level Error;
+  if verbose then Log.set_log_level Warning;
+  if debug then Log.set_log_level Debug
 
-module Aggregate = struct
-  let from_files store_shapes root output_file build_path files () =
-    Index.from_files ~store_shapes ~root ~output_file ~build_path files
-
-  let root =
-    let doc = "if provided all locations will be appended to that path" in
-    Arg.(value & opt (some string) None & info [ "root" ] ~doc)
-
-  let files =
-    let doc = "the files to index" in
-    Arg.(value & pos_all string [] & info [] ~doc)
-
-  let build_path =
-    let doc = "an extra directory to add to the load path" in
-    Arg.(value & opt_all string [] & info [ "I" ] ~doc)
-
-  let store_shapes =
-    let doc =
-      "aggregate input-indexes shapes and store them in the new index"
-    in
-    Arg.(value & flag & info [ "store-shapes" ] ~doc)
-
-  let term =
-    Term.(
-      const from_files $ store_shapes $ root $ Common.output_file $ build_path
-      $ files $ Common.with_log)
-
-  let cmd =
-    let info =
-      let doc = "builds the index for a single $(i, .cmt) file" in
-      Cmd.info "aggregate" ~doc
-    in
-    Cmd.v info term
-end
-
-module Dump = struct
-  let dump file () =
-    Merlin_index_format.Index_format.(read_exn ~file |> pp Format.std_formatter)
-
-  let file =
-    let doc = "the file to dump" in
-    Arg.(required & pos 0 (some string) None & info [] ~doc)
-
-  let term = Term.(const dump $ file $ Common.with_log)
-
-  let cmd =
-    let info =
-      let doc = "print the content of an index file to stdout" in
-      Cmd.info "dump" ~doc
-    in
-    Cmd.v info term
-end
-
-let subcommands =
-  let info =
-    let doc = "An indexer for OCaml's artifacts" in
-    Cmd.info "ocaml-index" ~doc
-  in
-  Cmd.group info ~default:Aggregate.term [ Aggregate.cmd; Dump.cmd ]
-
-let () = exit (Cmd.eval subcommands)
+let () =
+  Arg.parse speclist anon_fun usage_msg;
+  set_log_level !debug !verbose;
+  (match !command with
+  | Some Aggregate ->
+    let root = if String.equal "" !root then None else Some !root in
+    Index.from_files ~store_shapes:!store_shapes ~root ~output_file:!output_file ~build_path:!build_path !input_files
+  | Some Dump ->
+      List.iter (fun file ->
+      Merlin_index_format.Index_format.(read_exn ~file |> pp Format.std_formatter))
+      !input_files
+  | _ -> Printf.printf "Nothing to do.\n%!");
+  exit 0
