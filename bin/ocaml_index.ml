@@ -11,10 +11,11 @@ let output_file = ref "project.ocaml-index"
 let root = ref ""
 let store_shapes = ref false
 
-type command = Aggregate | Dump
+type command = Aggregate | Dump | Stats
 let parse_command = function
   | "aggregate" -> Some Aggregate
   | "dump" -> Some Dump
+  | "stats" -> Some Stats
   | _ -> None
 let command = ref None
 let anon_fun arg =
@@ -50,6 +51,21 @@ let () =
   | Some Dump ->
       List.iter (fun file ->
       Merlin_index_format.Index_format.(read_exn ~file |> pp Format.std_formatter))
+      !input_files
+  | Some Stats ->
+      List.iter (fun file ->
+        let open Merlin_index_format.Index_format in
+        let { defs; approximated; cu_shape; _} =
+          read_exn ~file
+        in
+        Printf.printf "Index %S contains:\n\
+          - Usage information for %i definitions\n\
+          - Usage information for %i approximated definitions\n\
+          - Shapes of %i compilation units.\n\n"
+        file (Uid_map.cardinal defs)  (Uid_map.cardinal approximated)
+        (Hashtbl.length cu_shape)
+
+      )
       !input_files
   | _ -> Printf.printf "Nothing to do.\n%!");
   exit 0

@@ -117,3 +117,14 @@
      "+": File "main.ml", line 4, characters 26-27
    }, 0 approx shapes: {}, and shapes for CUS .
 
+  $ ocaml-index stats foo.uideps test.uideps
+  Index "test.uideps" contains:
+  - Usage information for 13 definitions
+  - Usage information for 0 approximated definitions
+  - Shapes of 0 compilation units.
+  
+  Index "foo.uideps" contains:
+  - Usage information for 5 definitions
+  - Usage information for 0 approximated definitions
+  - Shapes of 0 compilation units.
+  
