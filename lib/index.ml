@@ -70,7 +70,8 @@ let init_load_path_once =
         init ~auto_include:no_auto_include ~visible ~hidden:cmt_loadpath.hidden);
       loaded := true)
 
-let index_of_cmt ~root ~rewrite_root ~build_path cmt_infos =
+let index_of_cmt ~root ~rewrite_root ~build_path ~do_not_use_cmt_loadpath
+    cmt_infos =
   let {
     Cmt_format.cmt_loadpath;
     cmt_impl_shape;
@@ -84,11 +85,14 @@ let index_of_cmt ~root ~rewrite_root ~build_path cmt_infos =
   } =
     cmt_infos
   in
-  init_load_path_once ~dirs:build_path cmt_loadpath;
+  if not do_not_use_cmt_loadpath then
+    init_load_path_once ~dirs:build_path cmt_loadpath;
   let module Reduce = Shape_reduce.Make (Reduce_conf) in
   let defs =
     if Option.is_none cmt_impl_shape then Shape.Uid.Map.empty
-    else gather_locs_from_fragments ~root ~rewrite_root Shape.Uid.Map.empty cmt_uid_to_decl
+    else
+      gather_locs_from_fragments ~root ~rewrite_root Shape.Uid.Map.empty
+        cmt_uid_to_decl
   in
   let defs, approximated =
     List.fold_left
@@ -134,7 +138,8 @@ let merge_index ~store_shapes ~into index =
     Hashtbl.add_seq index.cu_shape (Hashtbl.to_seq into.cu_shape);
   { into with defs; approximated; stats }
 
-let from_files ~store_shapes ~output_file ~root ~rewrite_root ~build_path files =
+let from_files ~store_shapes ~output_file ~root ~rewrite_root ~build_path
+    ~do_not_use_cmt_loadpath files =
   Log.debug "Debug log is enabled";
   let initial_index =
     {
@@ -152,7 +157,9 @@ let from_files ~store_shapes ~output_file ~root ~rewrite_root ~build_path files 
       (fun into file ->
         let index =
           match Cmt_cache.read file with
-          | cmt_item -> index_of_cmt ~root ~rewrite_root ~build_path cmt_item.cmt_infos
+          | cmt_item ->
+              index_of_cmt ~root ~rewrite_root ~build_path
+                ~do_not_use_cmt_loadpath cmt_item.cmt_infos
           | exception _ -> (
               match read ~file with
               | Index index -> index
