@@ -61,13 +61,16 @@ module Reduce_conf = struct
     try_load ~unit_name ()
 end
 
-let init_load_path_once =
+let init_load_path_once ~do_not_use_cmt_loadpath =
   let loaded = ref false in
   fun ~dirs cmt_loadpath ->
     if not !loaded then (
-      let visible = List.concat [ cmt_loadpath.Load_path.visible; dirs ] in
-      Load_path.(
-        init ~auto_include:no_auto_include ~visible ~hidden:cmt_loadpath.hidden);
+      let cmt_visible, cmt_hidden =
+        if do_not_use_cmt_loadpath then ([], [])
+        else (cmt_loadpath.Load_path.visible, cmt_loadpath.Load_path.hidden)
+      in
+      let visible = List.concat [ cmt_visible; dirs ] in
+      Load_path.(init ~auto_include:no_auto_include ~visible ~hidden:cmt_hidden);
       loaded := true)
 
 let index_of_cmt ~root ~rewrite_root ~build_path ~do_not_use_cmt_loadpath
@@ -85,8 +88,7 @@ let index_of_cmt ~root ~rewrite_root ~build_path ~do_not_use_cmt_loadpath
   } =
     cmt_infos
   in
-  if not do_not_use_cmt_loadpath then
-    init_load_path_once ~dirs:build_path cmt_loadpath;
+  init_load_path_once ~do_not_use_cmt_loadpath ~dirs:build_path cmt_loadpath;
   let module Reduce = Shape_reduce.Make (Reduce_conf) in
   let defs =
     if Option.is_none cmt_impl_shape then Shape.Uid.Map.empty
