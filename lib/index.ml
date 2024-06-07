@@ -103,6 +103,11 @@ let index_of_cmt ~root ~rewrite_root ~build_path ~do_not_use_cmt_loadpath
         let resolved =
           match item with
           | Unresolved shape -> Reduce.reduce_for_uid cmt_initial_env shape
+          | Resolved _ when Option.is_none cmt_impl_shape ->
+              (* Right now, without additional information we cannot take the
+              risk to mix uids from interfaces with the ones from
+              implementations. We simply ignore items defined in an interface. *)
+              Internal_error_missing_uid
           | result -> result
         in
         match MA.Locate.uid_of_result ~traverse_aliases:false resolved with
