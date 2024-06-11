@@ -1,4 +1,4 @@
 (executable
  (name ocaml_index)
  (public_name ocaml-index)
- (libraries cmdliner lib))
+ (libraries lib))
