@@ -83,7 +83,9 @@ let () =
       List.iter
         (fun file ->
           let open Merlin_index_format.Index_format in
-          let { defs; approximated; cu_shape; root_directory; _ } = read_exn ~file in
+          let { defs; approximated; cu_shape; root_directory; _ } =
+            read_exn ~file
+          in
           Printf.printf
             "Index %S contains:\n\
              - %i definitions\n\
