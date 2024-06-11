@@ -17,4 +17,4 @@
   codebase.")
  (depends
   (ocaml (>= "5.2"))
-  (merlin-lib (>= "5.1"))))
+  (merlin-lib (>= "5.1-502"))))

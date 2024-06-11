@@ -10,7 +10,7 @@ bug-reports: "https://github.com/voodoos/ocaml-index/issues"
 depends: [
   "dune" {>= "2.9"}
   "ocaml" {>= "5.2"}
-  "merlin-lib" {>= "5.1"}
+  "merlin-lib" {>= "5.1-502"}
   "odoc" {with-doc}
 ]
 build: [
@@ -30,5 +30,5 @@ build: [
   ["dune" "install" "-p" name "--create-install-files" name]
 ]
 pin-depends: [
-  ["merlin-lib.5.1"  "git+https://github.com/ocaml/merlin"]
+  ["merlin-lib.5.1-502"  "git+https://github.com/ocaml/merlin"]
 ]
