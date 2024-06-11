@@ -83,19 +83,21 @@ let () =
       List.iter
         (fun file ->
           let open Merlin_index_format.Index_format in
-          let { defs; approximated; cu_shape; _ } = read_exn ~file in
+          let { defs; approximated; cu_shape; root_directory; _ } = read_exn ~file in
           Printf.printf
             "Index %S contains:\n\
              - %i definitions\n\
              - %i locations\n\
              - %i approximated definitions\n\
-             - %i compilation units shapes\n\n"
+             - %i compilation units shapes\n\
+             - root dir: %s\n\n"
             file (Uid_map.cardinal defs)
             (Uid_map.fold
                (fun _uid locs acc -> acc + Lid_set.cardinal locs)
                defs 0)
             (Uid_map.cardinal approximated)
-            (Hashtbl.length cu_shape))
+            (Hashtbl.length cu_shape)
+            (Option.value ~default:"none" root_directory))
         !input_files
   | _ -> Printf.printf "Nothing to do.\n%!");
   exit 0

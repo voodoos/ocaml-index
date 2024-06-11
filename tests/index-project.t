@@ -119,12 +119,16 @@
 
   $ ocaml-index stats foo.uideps test.uideps
   Index "test.uideps" contains:
-  - Usage information for 13 definitions
-  - Usage information for 0 approximated definitions
-  - Shapes of 0 compilation units.
+  - 13 definitions
+  - 29 locations
+  - 0 approximated definitions
+  - 0 compilation units shapes
+  - root dir: none
   
   Index "foo.uideps" contains:
-  - Usage information for 5 definitions
-  - Usage information for 0 approximated definitions
-  - Shapes of 0 compilation units.
+  - 5 definitions
+  - 7 locations
+  - 0 approximated definitions
+  - 0 compilation units shapes
+  - root dir: none
   
