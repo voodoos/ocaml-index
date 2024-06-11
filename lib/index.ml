@@ -96,6 +96,9 @@ let index_of_cmt ~root ~rewrite_root ~build_path ~do_not_use_cmt_loadpath
       gather_locs_from_fragments ~root ~rewrite_root Shape.Uid.Map.empty
         cmt_uid_to_decl
   in
+  (* The list [cmt_ident_occurrences] associate each ident usage location in the
+     module with its (partially) reduced shape. We finish the reduction and
+     group together all the locations that share the same definition uid. *)
   let defs, approximated =
     List.fold_left
       (fun ((acc_defs, acc_apx) as acc) (lid, (item : Shape_reduce.result)) ->
