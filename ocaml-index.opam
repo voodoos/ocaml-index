@@ -29,3 +29,6 @@ build: [
   ]
   ["dune" "install" "-p" name "--create-install-files" name]
 ]
+pin-depends: [
+  ["merlin-lib.5.1"  "git+https://github.com/ocaml/merlin"]
+]
