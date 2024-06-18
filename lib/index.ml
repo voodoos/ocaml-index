@@ -1,5 +1,6 @@
 open Import
-module MA = Merlin_analysis
+module Locate = Merlin_analysis.Locate
+module Misc_utils = Merlin_analysis.Misc_utils
 module Kind = Shape.Sig_component_kind
 open Merlin_index_format.Index_format
 
@@ -33,7 +34,7 @@ let gather_locs_from_fragments ~root ~rewrite_root map fragments =
     { name with txt = Longident.Lident name.txt }
   in
   let add_loc uid fragment acc =
-    match Merlin_analysis.Misc_utils.loc_of_decl ~uid fragment with
+    match Misc_utils.loc_of_decl ~uid fragment with
     | None -> acc
     | Some lid ->
         let lid = to_located_lid lid in
@@ -113,7 +114,7 @@ let index_of_cmt ~root ~rewrite_root ~build_path ~do_not_use_cmt_loadpath
               Internal_error_missing_uid
           | result -> result
         in
-        match MA.Locate.uid_of_result ~traverse_aliases:false resolved with
+        match Locate.uid_of_result ~traverse_aliases:false resolved with
         | Some uid, false -> (add acc_defs uid (Lid_set.singleton lid), acc_apx)
         | Some uid, true -> (acc_defs, add acc_apx uid (Lid_set.singleton lid))
         | None, _ -> acc)
