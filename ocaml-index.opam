@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "A tool that indexes value usages from cmt files"
 description:
-  "ocaml-index should integrate with the build system to index a codebase."
+  "ocaml-index should integrate with the build system to index codebase and allow tools such as Merlin to perform project-wide occurrences queries."
 maintainer: ["ulysse@tarides.com"]
 authors: ["ulysse@tarides.com"]
 homepage: "https://github.com/voodoos/ocaml-index"

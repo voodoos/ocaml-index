@@ -13,8 +13,7 @@
  (homepage "https://github.com/voodoos/ocaml-index")
  (bug_reports "https://github.com/voodoos/ocaml-index/issues")
  (synopsis "A tool that indexes value usages from cmt files")
- (description "ocaml-index should integrate with the build system to index a \
-  codebase.")
+ (description "ocaml-index should integrate with the build system to index codebase and allow tools such as Merlin to perform project-wide occurrences queries.")
  (depends
   (ocaml (>= "5.2"))
   (merlin-lib (>= "5.1-502"))))
