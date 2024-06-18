@@ -10,6 +10,8 @@
  (name ocaml-index)
  (maintainers "ulysse@tarides.com")
  (authors "ulysse@tarides.com")
+ (license MIT)
+ (source (github voodoos/ocaml-index))
  (homepage "https://github.com/voodoos/ocaml-index")
  (bug_reports "https://github.com/voodoos/ocaml-index/issues")
  (synopsis "A tool that indexes value usages from cmt files")

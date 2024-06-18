@@ -5,6 +5,7 @@ description:
   "ocaml-index should integrate with the build system to index codebase and allow tools such as Merlin to perform project-wide occurrences queries."
 maintainer: ["ulysse@tarides.com"]
 authors: ["ulysse@tarides.com"]
+license: "MIT"
 homepage: "https://github.com/voodoos/ocaml-index"
 bug-reports: "https://github.com/voodoos/ocaml-index/issues"
 depends: [
@@ -29,6 +30,7 @@ build: [
   ]
   ["dune" "install" "-p" name "--create-install-files" name]
 ]
+dev-repo: "git+https://github.com/voodoos/ocaml-index.git"
 pin-depends: [
   ["merlin-lib.5.1-502"  "git+https://github.com/ocaml/merlin"]
 ]
